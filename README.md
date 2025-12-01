@@ -1,71 +1,50 @@
-# Efecte-iLOQ Integration UI
+# Integration Management UI
 
-A web-based management interface for the Efecte-iLOQ integration system running on Kubernetes/OpenShift. This application provides manual operation capabilities for managing key synchronization between Efecte and iLOQ systems.
+A modern web-based management interface for system integrations with Redis-backed data storage. Built with Next.js and TypeScript for reliability and maintainability.
 
-## Overview
+## Features
 
-This Next.js application provides:
-
-- **Authentication**: Secure login with role-based access (Admin/Support)
-- **Redis Integration**: Direct interface for managing Redis cache keys
-- **Manual Operations**: Interface for manual key synchronization operations
-- **Logging**: Structured logging with Pino for audit trails
+- **Secure Authentication**: Role-based access control with JWT sessions
+- **Redis Integration**: Direct interface for managing cached data and configurations
+- **Manual Operations**: Tools for managing synchronization operations
+- **Comprehensive Testing**: Full test coverage with Vitest
+- **Production Ready**: Docker support and structured logging
 
 ## Technology Stack
 
 - **Framework**: Next.js 15 with App Router
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS + Shadcn/ui
-- **Authentication**: NextAuth.js with JWT sessions
-- **State Management**: TanStack Query (React Query)
-- **Data Store**: Redis (ioredis client)
+- **Authentication**: NextAuth.js
+- **State Management**: TanStack Query
+- **Database**: Redis
 - **Testing**: Vitest + React Testing Library
 - **Logging**: Pino
-- **Containerization**: Docker + Docker Compose
 
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js 20 LTS or higher
-- npm or yarn
-- Docker and Docker Compose (for local development)
 - Redis server (or use Docker Compose)
 
 ### Installation
 
-1. Clone the repository:
-
-```bash
-git clone <repository-url>
-cd efecte-iloq-integration-ui
-```
-
-2. Install dependencies:
+1. Clone the repository and install dependencies:
 
 ```bash
 npm install
 ```
 
-3. Create `.env.local` file:
+2. Set up environment variables:
 
 ```bash
 cp .env.example .env.local
 ```
 
-4. Edit `.env.local` with your configuration:
+Edit `.env.local` with your configuration.
 
-```env
-NEXTAUTH_SECRET=your-secret-here
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=your-admin-password
-SUPPORT_USERNAME=support
-SUPPORT_PASSWORD=your-support-password
-REDIS_HOST=localhost
-REDIS_PORT=6379
-```
-
-5. Run the development server:
+3. Start the development server:
 
 ```bash
 npm run dev
@@ -75,25 +54,15 @@ Visit [http://localhost:3000](http://localhost:3000)
 
 ### Using Docker Compose
 
-Start both the UI and Redis:
+Start the application with Redis:
 
 ```bash
-npm run docker:up
+docker-compose up -d
 ```
 
-Stop services:
+## Development
 
-```bash
-npm run docker:down
-```
-
-View logs:
-
-```bash
-npm run docker:logs
-```
-
-## Available Scripts
+### Available Scripts
 
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
@@ -101,97 +70,80 @@ npm run docker:logs
 - `npm run lint` - Run ESLint
 - `npm run format` - Format code with Prettier
 - `npm test` - Run tests
-- `npm run test:ui` - Run tests with UI
-- `npm run test:coverage` - Run tests with coverage
+- `npm run test:coverage` - Generate coverage report
 - `npm run type-check` - Check TypeScript types
 
-## Documentation
-
-- [Developer Guide](docs/developer.md) - Detailed development instructions
-- [User Guide](docs/user-guide.md) - End-user documentation
-- [Stage 1 Specification](Efecte-iLOQ%20Integration%20UI%20-%20Stage%201%20Specification.md) - Complete technical specification
-
-## Project Structure
+### Project Structure
 
 ```
 ├── app/                    # Next.js app directory
 │   ├── api/               # API routes
-│   ├── (protected)/       # Protected routes (requires auth)
-│   └── login/             # Login page
+│   ├── (protected)/       # Protected routes
+│   └── login/             # Authentication
 ├── components/            # React components
-│   ├── ui/               # Shadcn/ui components
-│   └── auth/             # Authentication components
 ├── lib/                   # Core libraries
-│   ├── auth/             # Authentication logic
-│   ├── redis/            # Redis client and operations
-│   └── logger/           # Logging configuration
-├── types/                 # TypeScript type definitions
-├── __tests__/            # Test files
-└── docs/                 # Documentation
+│   ├── auth/             # Authentication
+│   ├── redis/            # Redis operations
+│   └── logger/           # Logging
+├── types/                 # TypeScript definitions
+└── __tests__/            # Test files
 ```
 
-## Environment Variables
+## Configuration
 
-See [.env.example](.env.example) for all required environment variables.
+Key environment variables:
 
-Key variables:
-
-- `NEXTAUTH_SECRET` - Secret for JWT signing (generate with `openssl rand -base64 32`)
-- `ADMIN_USERNAME/PASSWORD` - Admin user credentials
-- `SUPPORT_USERNAME/PASSWORD` - Support user credentials
-- `REDIS_HOST/PORT/PASSWORD` - Redis connection details
+- `NEXTAUTH_SECRET` - JWT signing secret
+- `REDIS_HOST` - Redis server host
+- `REDIS_PORT` - Redis server port
+- `REDIS_PASSWORD` - Redis authentication
+- Authentication credentials (see `.env.example`)
 
 ## Testing
 
-Run tests:
-
-```bash
-npm test
-```
-
-Run with coverage:
+The project maintains high test coverage standards:
 
 ```bash
 npm run test:coverage
 ```
 
-Target coverage: 90%+ for all metrics
+Target: 90%+ coverage across all metrics
 
 ## Deployment
 
-### Building Docker Image
+### Docker
+
+Build production image:
 
 ```bash
-docker build -t efecte-iloq-ui:latest .
+docker build -t integration-ui:latest .
 ```
 
-### Kubernetes/OpenShift
+### Container Orchestration
 
-The application is designed to run on Kubernetes/OpenShift. Configure:
+The application is designed for container orchestration platforms. Configure using:
 
-1. ConfigMap for non-sensitive environment variables
-2. Secrets for credentials (from Azure Key Vault)
-3. Service to expose the application
-4. Ingress/Route for external access
+- ConfigMaps for environment variables
+- Secrets for sensitive credentials
+- Health check endpoints
+- Horizontal pod autoscaling support
 
 ## Security
 
-- Credentials are never committed to the repository
-- Environment variables are loaded from Azure Key Vault in production
-- JWT-based sessions with 8-hour expiry
-- All routes require authentication except login page
-- Structured logging for audit trails
+- All routes require authentication
+- JWT-based sessions with configurable expiry
+- Environment-based credential management
+- Structured audit logging
+- No sensitive data in repository
 
 ## License
 
-[Add License Information]
-
-## Support
-
-For access requests or issues, contact:
-
-- [Add Support Contact Information]
+MIT License - see LICENSE file for details
 
 ## Contributing
 
-[Add Contributing Guidelines]
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Support
+
+For questions or issues, please open an issue in the repository.
