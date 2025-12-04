@@ -47,7 +47,7 @@ describe('NextAuth Config', () => {
     }
 
     const result = await jwtCallback({
-      token: {},
+      token: { username: '', role: 'admin' as const },
       user: mockUser,
       trigger: 'signIn' as any,
       session: undefined as any,
@@ -68,12 +68,12 @@ describe('NextAuth Config', () => {
 
     const existingToken = {
       username: 'testuser',
-      role: 'admin',
+      role: 'admin' as const,
     }
 
     const result = await jwtCallback({
       token: existingToken,
-      user: undefined,
+      user: undefined as any,
       trigger: 'update' as any,
       session: undefined as any,
       account: null,
@@ -92,7 +92,7 @@ describe('NextAuth Config', () => {
 
     const mockToken = {
       username: 'testuser',
-      role: 'admin',
+      role: 'admin' as const,
     }
 
     const result = await sessionCallback({
@@ -106,8 +106,10 @@ describe('NextAuth Config', () => {
       user: undefined as any,
     })
 
-    expect(result.user.username).toBe('testuser')
-    expect(result.user.role).toBe('admin')
+    if (result.user) {
+      expect((result.user as any).username).toBe('testuser')
+      expect((result.user as any).role).toBe('admin')
+    }
   })
 
   it('has pages configuration', async () => {

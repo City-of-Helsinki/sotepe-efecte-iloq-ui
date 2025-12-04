@@ -3,12 +3,17 @@ import { getRedisClient } from '@/lib/redis/client'
 
 // Mock ioredis
 vi.mock('ioredis', () => {
-  const mockRedis = vi.fn(() => ({
-    on: vi.fn(),
-    quit: vi.fn(),
-    status: 'ready',
-  }))
-  return { default: mockRedis }
+  return {
+    default: class MockRedis {
+      on = vi.fn()
+      quit = vi.fn()
+      status = 'ready'
+
+      constructor() {
+        // Mock constructor
+      }
+    }
+  }
 })
 
 describe('Redis Client', () => {
