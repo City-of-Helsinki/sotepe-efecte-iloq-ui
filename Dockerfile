@@ -9,11 +9,19 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci
 
+# Remove test directories and files from node_modules to avoid build issues
+RUN find node_modules -type d -name "test" -o -name "tests" -o -name "__tests__" -o -name "spec" -o -name "specs" | xargs rm -rf || true
+RUN find node_modules -name "*.test.js" -o -name "*.test.ts" -o -name "*.spec.js" -o -name "*.spec.ts" | xargs rm -f || true
+RUN find node_modules -name "bench.js" -o -name "benchmark.js" -o -name "LICENSE" -o -name "README.md" -o -name "*.md" | xargs rm -f || true
+
 # Copy source code
 COPY . .
 
 # Build application
 RUN npm run build
+
+# Ensure public directory exists (even if empty)
+RUN mkdir -p public
 
 # Production stage
 FROM node:20-alpine AS runner

@@ -23,7 +23,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
@@ -37,10 +37,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
+    # No volumes - using production build from Dockerfile
 
 volumes:
   redis-data:
