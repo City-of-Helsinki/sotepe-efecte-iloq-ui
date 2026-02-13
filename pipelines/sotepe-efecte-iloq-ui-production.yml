@@ -30,17 +30,12 @@ resources:
 
 extends:
   # Filename in Azure DevOps Repository
-  template: components/sotepe-efecte-iloq-ui/pipelines/sotepe-efecte-iloq-ui-release.yml@sotepe-efecte-iloq-pipelines
+  template: components/sotepe-efecte-iloq-ui/pipelines/sotepe-efecte-iloq-ui-production.yml@sotepe-efecte-iloq-pipelines
   # parameters:
     # Application build arguments and config map values as key value pairs.
     # Does not contain all buildArguments or configMap values, the rest located in sotepe-efecte-iloq-pipelines
     # The values here will override the values defined in the sotepe-efecte-iloq-pipelines repository
-    ## Staging definitions
-    # buildArgsStage:
+    # buildArgs:
     #   DEBUG: 1
-    # configMapStage: # pod environment variables
-    #   DEBUG: 1
-    ## Production definitions
-    ## Production is using staging image
     # configMap: # pod environment variables
     #   DEBUG: 1
