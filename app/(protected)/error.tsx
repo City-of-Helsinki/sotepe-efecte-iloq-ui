@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 
@@ -14,6 +15,8 @@ export default function ProtectedError({
   const router = useRouter()
 
   useEffect(() => {
+    // Send error to Sentry
+    Sentry.captureException(error)
     console.error('Protected route error:', error)
   }, [error])
 

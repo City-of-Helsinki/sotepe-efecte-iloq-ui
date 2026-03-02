@@ -27,12 +27,12 @@ async function fetchNonSyncedKeys(): Promise<NonSyncedKeysData> {
         const timeParts = parts[1].split(':')
 
         const date = new Date(
-          parseInt(dateParts[0]),
-          parseInt(dateParts[1]) - 1,
-          parseInt(dateParts[2]),
-          parseInt(timeParts[0]),
-          parseInt(timeParts[1]),
-          parseInt(timeParts[2])
+          Number.parseInt(dateParts[0]),
+          Number.parseInt(dateParts[1]) - 1,
+          Number.parseInt(dateParts[2]),
+          Number.parseInt(timeParts[0]),
+          Number.parseInt(timeParts[1]),
+          Number.parseInt(timeParts[2])
         )
 
         // Format as "Month Day, Year at HH:MM"

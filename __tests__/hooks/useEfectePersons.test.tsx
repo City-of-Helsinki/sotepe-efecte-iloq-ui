@@ -5,7 +5,7 @@ import { useEfectePersons } from '@/hooks/useEfectePersons'
 import type { ReactNode } from 'react'
 
 // Mock fetch
-global.fetch = vi.fn()
+globalThis.fetch = vi.fn()
 
 describe('useEfectePersons', () => {
   let queryClient: QueryClient

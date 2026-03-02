@@ -5,7 +5,7 @@ import { useSavePersonMapping } from '@/hooks/useSavePersonMapping'
 import type { ReactNode } from 'react'
 
 // Mock fetch
-global.fetch = vi.fn()
+globalThis.fetch = vi.fn()
 
 describe('useSavePersonMapping', () => {
   let queryClient: QueryClient

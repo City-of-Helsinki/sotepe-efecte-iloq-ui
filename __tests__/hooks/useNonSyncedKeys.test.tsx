@@ -5,7 +5,7 @@ import { useNonSyncedKeys } from '@/hooks/useNonSyncedKeys'
 import type { ReactNode } from 'react'
 
 // Mock fetch
-global.fetch = vi.fn()
+globalThis.fetch = vi.fn()
 
 describe('useNonSyncedKeys', () => {
   let queryClient: QueryClient

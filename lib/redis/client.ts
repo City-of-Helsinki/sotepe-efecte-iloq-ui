@@ -10,14 +10,14 @@ export function getRedisClient(): Redis {
     if (useSentinel) {
       // SENTINEL MODE - configure sentinel connection
       const sentinelHost = process.env.REDIS_SENTINEL_HOST || 'localhost'
-      const sentinelPort = parseInt(
+      const sentinelPort = Number.parseInt(
         process.env.REDIS_SENTINEL_PORT || '26379',
         10
       )
       const sentinelMaster = process.env.REDIS_SENTINEL_MASTER || 'mymaster'
       const redisPassword = process.env.REDIS_PASSWORD
       const sentinelPassword = process.env.REDIS_SENTINEL_PASSWORD
-      const db = parseInt(process.env.REDIS_DB || '0', 10)
+      const db = Number.parseInt(process.env.REDIS_DB || '0', 10)
 
       logger.info(
         {
@@ -45,9 +45,9 @@ export function getRedisClient(): Redis {
     } else {
       // DIRECT CONNECTION MODE - configure direct redis connection
       const host = process.env.REDIS_HOST || 'localhost'
-      const port = parseInt(process.env.REDIS_PORT || '6379', 10)
+      const port = Number.parseInt(process.env.REDIS_PORT || '6379', 10)
       const password = process.env.REDIS_PASSWORD
-      const db = parseInt(process.env.REDIS_DB || '0', 10)
+      const db = Number.parseInt(process.env.REDIS_DB || '0', 10)
 
       logger.info(
         {
