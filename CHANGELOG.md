@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.0.2...sotepe-efecte-iloq-ui-v1.0.3) (2026-03-18)
+
+
+### Bug Fixes
+
+* Add missing efecte person mapping ([#9](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/issues/9)) ([f3c9414](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/commit/f3c94144ecdea31eff7485e382a0c31910b2f81a))
+
 ## [1.0.2](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.0.1...sotepe-efecte-iloq-ui-v1.0.2) (2026-03-02)
 
 
