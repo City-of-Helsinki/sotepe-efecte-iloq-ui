@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.0.3...sotepe-efecte-iloq-ui-v1.0.4) (2026-03-19)
+
+
+### Bug Fixes
+
+* Reduce noice from redis-sentinel connection logs ([#11](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/issues/11)) ([a30edf3](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/commit/a30edf33aab4cbc453616409e90eebac2d737b08))
+
 ## [1.0.3](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.0.2...sotepe-efecte-iloq-ui-v1.0.3) (2026-03-18)
 
 
