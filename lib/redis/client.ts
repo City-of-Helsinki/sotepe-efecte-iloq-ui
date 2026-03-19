@@ -2,6 +2,8 @@ import Redis from 'ioredis'
 import { logger } from '../logger'
 
 let redis: Redis | null = null
+let retryCount = 0
+let initialConnection = true
 
 export function getRedisClient(): Redis {
   if (!redis) {
@@ -36,8 +38,13 @@ export function getRedisClient(): Redis {
         sentinelPassword: sentinelPassword, // Password for Sentinel nodes
         db,
         retryStrategy: times => {
+          retryCount = times
           const delay = Math.min(times * 50, 2000)
-          logger.warn({ times, delay }, 'Redis Sentinel connection retry')
+          if (times > 3) {
+            logger.warn({ times, delay }, 'Redis Sentinel connection retry')
+          } else {
+            logger.debug({ times, delay }, 'Redis Sentinel connection retry')
+          }
           return delay
         },
         maxRetriesPerRequest: 3,
@@ -73,15 +80,29 @@ export function getRedisClient(): Redis {
     }
 
     redis.on('connect', () => {
-      logger.info('Redis client connected')
+      if (initialConnection || retryCount > 3) {
+        logger.info('Redis client connected')
+        initialConnection = false
+      } else {
+        logger.debug('Redis client connected')
+      }
+      retryCount = 0
     })
 
     redis.on('error', err => {
-      logger.error({ err }, 'Redis client error')
+      if (retryCount > 3) {
+        logger.error({ err }, 'Redis client error')
+      } else {
+        logger.debug({ err: err.message }, 'Redis client error (transient)')
+      }
     })
 
     redis.on('close', () => {
-      logger.info('Redis connection closed')
+      if (retryCount > 3) {
+        logger.warn('Redis connection closed')
+      } else {
+        logger.debug('Redis connection closed')
+      }
     })
   }
 
