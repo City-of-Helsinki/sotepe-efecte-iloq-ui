@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.5](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.0.4...sotepe-efecte-iloq-ui-v1.0.5) (2026-10-15)
+
+
+### Bug Fixes
+
+* Use customer code in person mapping Redis keys ([#13](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/issues/13)) ([f771236](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/commit/f771236df5ba62bedb08dd8684f0d7d500545638))
+
 ## [1.0.4](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.0.3...sotepe-efecte-iloq-ui-v1.0.4) (2026-03-19)
 
 
