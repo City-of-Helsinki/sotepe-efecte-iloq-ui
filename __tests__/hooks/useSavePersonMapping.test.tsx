@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useSavePersonMapping } from '@/hooks/useSavePersonMapping'
+import {
+  useSavePersonMapping,
+  SaveMappingError,
+  getSaveMappingErrorMessage,
+} from '@/hooks/useSavePersonMapping'
+import { getDictionary } from '@/lib/i18n'
 import type { ReactNode } from 'react'
 
 // Mock fetch
@@ -186,5 +191,70 @@ describe('useSavePersonMapping', () => {
     await waitFor(() => expect(result.current.isError).toBe(true))
 
     expect(result.current.error).toBeInstanceOf(Error)
+  })
+
+  it('passes the error code from the API to the error', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({
+        error: 'Customer code is missing',
+        code: 'CUSTOMER_CODE_MISSING',
+      }),
+    } as Response)
+
+    const { result } = renderHook(() => useSavePersonMapping(), { wrapper })
+
+    result.current.mutate({
+      personId: 'p1',
+      realEstateId: 're1',
+      keyId: 'k1',
+      mapping: { entityId: '123456', efecteId: 'PER-00012345' },
+    })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+
+    expect(result.current.error).toBeInstanceOf(SaveMappingError)
+    expect((result.current.error as SaveMappingError).code).toBe(
+      'CUSTOMER_CODE_MISSING'
+    )
+  })
+
+  it('treats a response without an error code as a save failure', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      json: async () => {
+        throw new Error('not json')
+      },
+    } as unknown as Response)
+
+    const { result } = renderHook(() => useSavePersonMapping(), { wrapper })
+
+    result.current.mutate({
+      personId: 'p1',
+      realEstateId: 're1',
+      keyId: 'k1',
+      mapping: { entityId: '123456', efecteId: 'PER-00012345' },
+    })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+
+    expect((result.current.error as SaveMappingError).code).toBe('SAVE_FAILED')
+  })
+
+  it('maps errors to translated messages', () => {
+    const t = getDictionary('fi')
+
+    expect(
+      getSaveMappingErrorMessage(
+        new SaveMappingError('x', 'CUSTOMER_CODE_MISSING'),
+        t
+      )
+    ).toBe(t.toasts.customerCodeMissing)
+    expect(
+      getSaveMappingErrorMessage(new SaveMappingError('x', 'SAVE_FAILED'), t)
+    ).toBe(t.toasts.saveFailed)
+    expect(getSaveMappingErrorMessage(new Error('network'), t)).toBe(
+      t.toasts.saveFailed
+    )
   })
 })

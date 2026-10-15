@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { Navbar } from '@/components/navbar/Navbar'
+import { getDictionary } from '@/lib/i18n'
+
+const t = getDictionary('fi')
 
 // Create a mock function
 const mockUsePathname = vi.fn()
@@ -18,21 +21,21 @@ describe('Navbar', () => {
   it('renders navigation links', () => {
     render(<Navbar />)
 
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Non-Synced Keys')).toBeInTheDocument()
+    expect(screen.getByText(t.nav.dashboard)).toBeInTheDocument()
+    expect(screen.getByText(t.nav.nonSyncedKeys)).toBeInTheDocument()
   })
 
   it('renders app title', () => {
     render(<Navbar />)
 
-    expect(screen.getByText('Efecte-iLOQ Integration')).toBeInTheDocument()
+    expect(screen.getByText(t.common.appName)).toBeInTheDocument()
   })
 
   it('has correct link hrefs', () => {
     render(<Navbar />)
 
-    const dashboardLink = screen.getByText('Dashboard').closest('a')
-    const nonSyncedKeysLink = screen.getByText('Non-Synced Keys').closest('a')
+    const dashboardLink = screen.getByText(t.nav.dashboard).closest('a')
+    const nonSyncedKeysLink = screen.getByText(t.nav.nonSyncedKeys).closest('a')
 
     expect(dashboardLink).toHaveAttribute('href', '/dashboard')
     expect(nonSyncedKeysLink).toHaveAttribute('href', '/non-synced-keys')
@@ -43,7 +46,7 @@ describe('Navbar', () => {
 
     render(<Navbar />)
 
-    const dashboardLink = screen.getByText('Dashboard')
+    const dashboardLink = screen.getByText(t.nav.dashboard)
     expect(dashboardLink.className).toContain('text-primary')
   })
 
@@ -52,7 +55,7 @@ describe('Navbar', () => {
 
     render(<Navbar />)
 
-    const nonSyncedKeysLink = screen.getByText('Non-Synced Keys')
+    const nonSyncedKeysLink = screen.getByText(t.nav.nonSyncedKeys)
     expect(nonSyncedKeysLink.className).toContain('text-muted-foreground')
   })
 
@@ -61,8 +64,8 @@ describe('Navbar', () => {
 
     render(<Navbar />)
 
-    const dashboardLink = screen.getByText('Dashboard')
-    const nonSyncedKeysLink = screen.getByText('Non-Synced Keys')
+    const dashboardLink = screen.getByText(t.nav.dashboard)
+    const nonSyncedKeysLink = screen.getByText(t.nav.nonSyncedKeys)
 
     expect(dashboardLink.className).toContain('text-muted-foreground')
     expect(nonSyncedKeysLink.className).toContain('text-primary')

@@ -7,9 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useI18n } from '@/components/providers/language-provider'
+import { LanguageSwitcher } from '@/components/language/LanguageSwitcher'
 
 export default function LoginForm() {
   const router = useRouter()
+  const { t } = useI18n()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -28,13 +31,13 @@ export default function LoginForm() {
       })
 
       if (result?.error) {
-        setError('Invalid username or password')
+        setError(t.login.invalidCredentials)
       } else if (result?.ok) {
         router.push('/dashboard')
         router.refresh()
       }
     } catch (err) {
-      setError('An error occurred during login')
+      setError(t.login.loginError)
     } finally {
       setIsLoading(false)
     }
@@ -42,11 +45,12 @@ export default function LoginForm() {
 
   return (
     <div className="w-full max-w-md space-y-6">
+      <div className="flex justify-end">
+        <LanguageSwitcher />
+      </div>
       <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold">Efecte-iLOQ Integration</h1>
-        <p className="text-gray-500">
-          Sign in to access the management interface
-        </p>
+        <h1 className="text-3xl font-bold">{t.common.appName}</h1>
+        <p className="text-gray-500">{t.login.subtitle}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -57,7 +61,7 @@ export default function LoginForm() {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="username">Username</Label>
+          <Label htmlFor="username">{t.login.username}</Label>
           <Input
             id="username"
             type="text"
@@ -69,7 +73,7 @@ export default function LoginForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t.login.password}</Label>
           <Input
             id="password"
             type="password"
@@ -81,7 +85,7 @@ export default function LoginForm() {
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? 'Signing in...' : 'Sign In'}
+          {isLoading ? t.login.signingIn : t.login.signIn}
         </Button>
       </form>
     </div>

@@ -85,11 +85,11 @@ export interface OutsiderMapping {
   outsiderEmail: string
 }
 
-// Failure categories
-export type FailureCategory = 'multiple_matching' | 'no_matching'
-
-// Direction type
-export type SyncDirection = 'ILOQ_TO_EFECTE' | 'EFECTE_TO_ILOQ'
+// Failure categories shown in the UI. Other (technical) failures are not shown, they are followed in Sentry
+export type FailureCategory =
+  | 'multiple_matching'
+  | 'no_matching'
+  | 'outsider_without_key_card'
 
 // Grouped data for UI
 export interface RealEstateGroup {
@@ -99,22 +99,10 @@ export interface RealEstateGroup {
   keys: AuditRecord[]
 }
 
-export interface DirectionGroup {
-  direction: SyncDirection
-  displayText: string
-  categories: CategoryGroup[]
-}
-
-export interface CategoryGroup {
-  category: FailureCategory
-  displayText: string
-  keys: AuditRecord[]
-}
-
 // API responses
 export interface NonSyncedKeysResponse {
   realEstates: RealEstateGroup[]
-  lastIntegrationRun: string | null
+  lastIntegrationRun: Date | null
 }
 
 export interface EfectePersonsResponse {
@@ -124,7 +112,15 @@ export interface EfectePersonsResponse {
 export interface SaveMappingResponse {
   success: boolean
   error?: string
+  code?: SaveMappingErrorCode
 }
+
+// The client shows a translated message based on the code
+export type SaveMappingErrorCode =
+  | 'UNAUTHORIZED'
+  | 'INVALID_REQUEST'
+  | 'CUSTOMER_CODE_MISSING'
+  | 'SAVE_FAILED'
 
 // Helper types for mutations
 export interface SaveMappingData {

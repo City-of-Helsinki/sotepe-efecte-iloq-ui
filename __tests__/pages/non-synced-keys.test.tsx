@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import userEvent from '@testing-library/user-event'
 import NonSyncedKeysPage from '@/app/(protected)/non-synced-keys/page'
+import { INFO_PANEL_STORAGE_KEY } from '@/components/non-synced-keys/InfoPanel'
 
 // Mock the hooks
 vi.mock('@/hooks/useNonSyncedKeys', () => ({
@@ -16,6 +18,11 @@ vi.mock('sonner', () => ({
 }))
 
 import { useNonSyncedKeys } from '@/hooks/useNonSyncedKeys'
+import { getDictionary } from '@/lib/i18n'
+
+const t = getDictionary('fi')
+
+const LAST_RUN = new Date(2025, 10, 3, 9, 30, 0)
 
 describe('NonSyncedKeysPage', () => {
   let queryClient: QueryClient
@@ -27,6 +34,7 @@ describe('NonSyncedKeysPage', () => {
       },
     })
     vi.clearAllMocks()
+    window.localStorage.clear()
   })
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -46,13 +54,13 @@ describe('NonSyncedKeysPage', () => {
           keys: [],
         },
       ],
-      lastIntegrationRun: '2025-11-03',
+      lastIntegrationRun: LAST_RUN,
     }
 
     // Updated state: real estate no longer exists (all keys resolved)
     const updatedData = {
       realEstates: [],
-      lastIntegrationRun: '2025-11-03',
+      lastIntegrationRun: LAST_RUN,
     }
 
     vi.mocked(useNonSyncedKeys).mockReturnValue({
@@ -65,7 +73,7 @@ describe('NonSyncedKeysPage', () => {
     const { rerender } = render(<NonSyncedKeysPage />, { wrapper })
 
     // Verify list view is shown initially
-    expect(screen.getByText('Non-Synced Keys')).toBeInTheDocument()
+    expect(screen.getByText(t.nonSyncedKeys.title)).toBeInTheDocument()
     expect(screen.getByText('Building A')).toBeInTheDocument()
 
     // Simulate selecting a real estate (this would change view state internally)
@@ -84,7 +92,7 @@ describe('NonSyncedKeysPage', () => {
 
     // The page should show the "No Synchronization Issues" message
     await waitFor(() => {
-      expect(screen.getByText('No Synchronization Issues')).toBeInTheDocument()
+      expect(screen.getByText(t.nonSyncedKeys.emptyTitle)).toBeInTheDocument()
     })
   })
 
@@ -101,7 +109,7 @@ describe('NonSyncedKeysPage', () => {
           keys: [{ id: '1' }, { id: '2' }] as any,
         },
       ],
-      lastIntegrationRun: '2025-11-03',
+      lastIntegrationRun: LAST_RUN,
     }
 
     // Updated state: same real estate with 1 key (one was resolved)
@@ -114,7 +122,7 @@ describe('NonSyncedKeysPage', () => {
           keys: [{ id: '2' }] as any,
         },
       ],
-      lastIntegrationRun: '2025-11-03',
+      lastIntegrationRun: LAST_RUN,
     }
 
     vi.mocked(useNonSyncedKeys).mockReturnValue({
@@ -127,7 +135,9 @@ describe('NonSyncedKeysPage', () => {
     const { rerender } = render(<NonSyncedKeysPage />, { wrapper })
 
     // Verify initial key count
-    expect(screen.getByText('(2)')).toBeInTheDocument()
+    expect(
+      screen.getByText(`(${t.nonSyncedKeys.keyCount(2)})`)
+    ).toBeInTheDocument()
 
     // Simulate data update after successful person matching
     vi.mocked(useNonSyncedKeys).mockReturnValue({
@@ -141,8 +151,12 @@ describe('NonSyncedKeysPage', () => {
 
     // Verify updated key count
     await waitFor(() => {
-      expect(screen.getByText('(1)')).toBeInTheDocument()
-      expect(screen.queryByText('(2)')).not.toBeInTheDocument()
+      expect(
+        screen.getByText(`(${t.nonSyncedKeys.keyCount(1)})`)
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByText(`(${t.nonSyncedKeys.keyCount(2)})`)
+      ).not.toBeInTheDocument()
     })
   })
 
@@ -158,7 +172,7 @@ describe('NonSyncedKeysPage', () => {
           keys: [],
         },
       ],
-      lastIntegrationRun: '2025-11-03',
+      lastIntegrationRun: LAST_RUN,
     }
 
     vi.mocked(useNonSyncedKeys).mockReturnValue({
@@ -187,7 +201,7 @@ describe('NonSyncedKeysPage', () => {
     render(<NonSyncedKeysPage />, { wrapper })
 
     // Should show skeleton loaders
-    expect(screen.getByText('Non-Synced Keys')).toBeInTheDocument()
+    expect(screen.getByText(t.nonSyncedKeys.title)).toBeInTheDocument()
     // Skeleton elements would be present
   })
 
@@ -203,8 +217,12 @@ describe('NonSyncedKeysPage', () => {
 
     render(<NonSyncedKeysPage />, { wrapper })
 
-    expect(screen.getByText('Failed to Load Non-Synced Keys')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    expect(
+      screen.getByText(t.nonSyncedKeys.loadFailedTitle)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: t.nonSyncedKeys.retry })
+    ).toBeInTheDocument()
   })
 
   it('shows empty state when no real estates have issues', () => {
@@ -213,7 +231,7 @@ describe('NonSyncedKeysPage', () => {
     vi.mocked(useNonSyncedKeys).mockReturnValue({
       data: {
         realEstates: [],
-        lastIntegrationRun: '2025-11-03',
+        lastIntegrationRun: LAST_RUN,
       },
       isLoading: false,
       error: null,
@@ -222,9 +240,55 @@ describe('NonSyncedKeysPage', () => {
 
     render(<NonSyncedKeysPage />, { wrapper })
 
-    expect(screen.getByText('No Synchronization Issues')).toBeInTheDocument()
+    expect(screen.getByText(t.nonSyncedKeys.emptyTitle)).toBeInTheDocument()
     expect(
-      screen.getByText(/All keys have been successfully synchronized/)
+      screen.getByText(t.nonSyncedKeys.emptyDescription)
     ).toBeInTheDocument()
+  })
+
+  it('shows the last integration run in the selected language format', () => {
+    vi.mocked(useNonSyncedKeys).mockReturnValue({
+      data: { realEstates: [], lastIntegrationRun: LAST_RUN },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as any)
+
+    render(<NonSyncedKeysPage />, { wrapper })
+
+    expect(screen.getByText('3.11.2025 klo 9.30')).toBeInTheDocument()
+  })
+
+  it('shows the info panel open by default and remembers when it is closed', async () => {
+    const user = userEvent.setup()
+
+    vi.mocked(useNonSyncedKeys).mockReturnValue({
+      data: { realEstates: [], lastIntegrationRun: LAST_RUN },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as any)
+
+    const { unmount } = render(<NonSyncedKeysPage />, { wrapper })
+
+    const toggle = screen.getByRole('button', { name: t.infoPanel.title })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    t.infoPanel.items.forEach(item => {
+      expect(screen.getByText(item)).toBeInTheDocument()
+    })
+
+    await user.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText(t.infoPanel.items[0])).not.toBeInTheDocument()
+    expect(window.localStorage.getItem(INFO_PANEL_STORAGE_KEY)).toBe('false')
+
+    // The closed state is remembered on the next visit
+    unmount()
+    render(<NonSyncedKeysPage />, { wrapper })
+
+    expect(
+      screen.getByRole('button', { name: t.infoPanel.title })
+    ).toHaveAttribute('aria-expanded', 'false')
   })
 })

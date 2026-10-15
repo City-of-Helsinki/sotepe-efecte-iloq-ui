@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { signIn } from 'next-auth/react'
 import LoginForm from '@/components/auth/LoginForm'
+import { getDictionary } from '@/lib/i18n'
+
+const t = getDictionary('fi')
 
 vi.mock('next-auth/react')
 
@@ -13,9 +16,11 @@ describe('LoginForm', () => {
   it('renders login form with username and password fields', () => {
     render(<LoginForm />)
 
-    expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(t.login.username)).toBeInTheDocument()
+    expect(screen.getByLabelText(t.login.password)).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: t.login.signIn })
+    ).toBeInTheDocument()
   })
 
   it('submits form with username and password', async () => {
@@ -24,9 +29,9 @@ describe('LoginForm', () => {
 
     render(<LoginForm />)
 
-    const usernameInput = screen.getByLabelText(/username/i)
-    const passwordInput = screen.getByLabelText(/password/i)
-    const submitButton = screen.getByRole('button', { name: /sign in/i })
+    const usernameInput = screen.getByLabelText(t.login.username)
+    const passwordInput = screen.getByLabelText(t.login.password)
+    const submitButton = screen.getByRole('button', { name: t.login.signIn })
 
     fireEvent.change(usernameInput, { target: { value: 'testuser' } })
     fireEvent.change(passwordInput, { target: { value: 'testpass' } })
@@ -50,18 +55,16 @@ describe('LoginForm', () => {
 
     render(<LoginForm />)
 
-    const usernameInput = screen.getByLabelText(/username/i)
-    const passwordInput = screen.getByLabelText(/password/i)
-    const submitButton = screen.getByRole('button', { name: /sign in/i })
+    const usernameInput = screen.getByLabelText(t.login.username)
+    const passwordInput = screen.getByLabelText(t.login.password)
+    const submitButton = screen.getByRole('button', { name: t.login.signIn })
 
     fireEvent.change(usernameInput, { target: { value: 'wrong' } })
     fireEvent.change(passwordInput, { target: { value: 'wrong' } })
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/invalid username or password/i)
-      ).toBeInTheDocument()
+      expect(screen.getByText(t.login.invalidCredentials)).toBeInTheDocument()
     })
   })
 
@@ -73,9 +76,9 @@ describe('LoginForm', () => {
 
     render(<LoginForm />)
 
-    const usernameInput = screen.getByLabelText(/username/i)
-    const passwordInput = screen.getByLabelText(/password/i)
-    const submitButton = screen.getByRole('button', { name: /sign in/i })
+    const usernameInput = screen.getByLabelText(t.login.username)
+    const passwordInput = screen.getByLabelText(t.login.password)
+    const submitButton = screen.getByRole('button', { name: t.login.signIn })
 
     fireEvent.change(usernameInput, { target: { value: 'test' } })
     fireEvent.change(passwordInput, { target: { value: 'test' } })
@@ -84,6 +87,6 @@ describe('LoginForm', () => {
     expect(usernameInput).toBeDisabled()
     expect(passwordInput).toBeDisabled()
     expect(submitButton).toBeDisabled()
-    expect(submitButton).toHaveTextContent(/signing in/i)
+    expect(submitButton).toHaveTextContent(t.login.signingIn)
   })
 })

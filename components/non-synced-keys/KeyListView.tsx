@@ -2,91 +2,49 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import type {
-  RealEstateGroup,
-  AuditRecord,
-  FailureCategory,
-  SyncDirection,
-} from '@/types'
+import type { RealEstateGroup, AuditRecord, FailureCategory } from '@/types'
+import {
+  FAILURE_CATEGORIES,
+  categorizeAuditMessage,
+} from '@/lib/non-synced-keys/categories'
+import { useI18n } from '@/components/providers/language-provider'
 import { KeyDetailsModal } from './KeyDetailsModal'
+import { CategoryGuidance } from './CategoryGuidance'
 
 interface KeyListViewProps {
   realEstate: RealEstateGroup
 }
 
-function categorizeKey(message: string): FailureCategory {
-  if (message.startsWith('Multiple matching key holders found')) {
-    return 'multiple_matching'
-  }
-  return 'no_matching'
-}
-
-function getCategoryDisplayText(category: FailureCategory): string {
-  if (category === 'multiple_matching') {
-    return 'Multiple matching key holders found'
-  }
-  return 'No matching key holder / outsider found'
-}
-
-function getSyncDirection(key: AuditRecord): SyncDirection {
-  if (key.from === 'ILOQ' && key.to === 'EFECTE') {
-    return 'ILOQ_TO_EFECTE'
-  }
-  return 'EFECTE_TO_ILOQ'
-}
-
-function getDirectionDisplayText(direction: SyncDirection): string {
-  if (direction === 'ILOQ_TO_EFECTE') {
-    return 'Direction: iLOQ → Efecte'
-  }
-  return 'Direction: Efecte → iLOQ'
-}
-
 export function KeyListView({ realEstate }: KeyListViewProps) {
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set()
-  )
+  const { t } = useI18n()
+  const [expandedCategories, setExpandedCategories] = useState<
+    Set<FailureCategory>
+  >(new Set())
   const [selectedKey, setSelectedKey] = useState<AuditRecord | null>(null)
   const [selectedCategory, setSelectedCategory] =
     useState<FailureCategory | null>(null)
 
-  // Group keys by direction and then by category
+  // Group keys by category, records without a category are not shown in the UI
   const groupedKeys = realEstate.keys.reduce(
     (acc, key) => {
-      const direction = getSyncDirection(key)
-      const category = categorizeKey(key.message)
+      const category = categorizeAuditMessage(key.message)
 
-      if (!acc[direction]) {
-        acc[direction] = {} as Record<FailureCategory, AuditRecord[]>
+      if (category) {
+        acc[category] = [...(acc[category] ?? []), key]
       }
-      if (!acc[direction][category]) {
-        acc[direction][category] = []
-      }
-      acc[direction][category].push(key)
       return acc
     },
-    {} as Record<SyncDirection, Record<FailureCategory, AuditRecord[]>>
+    {} as Partial<Record<FailureCategory, AuditRecord[]>>
   )
 
-  const toggleCategory = (
-    direction: SyncDirection,
-    category: FailureCategory
-  ) => {
-    const key = `${direction}-${category}`
+  const toggleCategory = (category: FailureCategory) => {
     const newSet = new Set(expandedCategories)
-    if (newSet.has(key)) {
-      newSet.delete(key)
+    if (newSet.has(category)) {
+      newSet.delete(category)
     } else {
-      newSet.add(key)
+      newSet.add(category)
     }
     setExpandedCategories(newSet)
-  }
-
-  const isCategoryExpanded = (
-    direction: SyncDirection,
-    category: FailureCategory
-  ) => {
-    return expandedCategories.has(`${direction}-${category}`)
   }
 
   const handleKeyClick = (key: AuditRecord, category: FailureCategory) => {
@@ -109,58 +67,53 @@ export function KeyListView({ realEstate }: KeyListViewProps) {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">
-          Real Estate: {realEstate.realEstateName}
+          {t.nonSyncedKeys.realEstate(realEstate.realEstateName)}
         </h2>
       </div>
 
-      {Object.entries(groupedKeys).map(([direction, categories]) => (
-        <div key={direction} className="space-y-4">
-          <h3 className="text-lg font-semibold text-primary">
-            {getDirectionDisplayText(direction as SyncDirection)}
-          </h3>
+      <div className="space-y-4">
+        {FAILURE_CATEGORIES.map(category => {
+          const keys = groupedKeys[category]
 
-          {Object.entries(categories).map(([category, keys]) => {
-            const categoryKey = `${direction}-${category}`
-            const isExpanded = isCategoryExpanded(
-              direction as SyncDirection,
-              category as FailureCategory
-            )
-            const sortedKeys = [...keys].sort((a, b) =>
-              a.iloqKey.description.localeCompare(b.iloqKey.description)
-            )
+          if (!keys || keys.length === 0) {
+            return null
+          }
 
-            return (
-              <div key={categoryKey} className="border rounded-lg">
-                <button
-                  onClick={() =>
-                    toggleCategory(
-                      direction as SyncDirection,
-                      category as FailureCategory
-                    )
-                  }
-                  className="w-full p-4 flex items-center justify-between hover:bg-accent transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                    <span className="font-medium">
-                      {getCategoryDisplayText(category as FailureCategory)} (
-                      {keys.length} keys)
-                    </span>
+          const isExpanded = expandedCategories.has(category)
+          const sortedKeys = [...keys].sort((a, b) =>
+            a.iloqKey.description.localeCompare(b.iloqKey.description)
+          )
+
+          return (
+            <div key={category} className="border rounded-lg">
+              <button
+                onClick={() => toggleCategory(category)}
+                aria-expanded={isExpanded}
+                className="w-full p-4 flex items-center justify-between hover:bg-accent transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  <span className="font-medium">
+                    {t.categories[category].title} (
+                    {t.nonSyncedKeys.keyCount(keys.length)})
+                  </span>
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="border-t">
+                  <div className="p-3 border-b">
+                    <CategoryGuidance category={category} />
                   </div>
-                </button>
-
-                {isExpanded && (
-                  <div className="border-t divide-y">
+                  <div className="divide-y">
                     {sortedKeys.map(key => (
                       <button
                         key={key.id}
-                        onClick={() =>
-                          handleKeyClick(key, category as FailureCategory)
-                        }
+                        onClick={() => handleKeyClick(key, category)}
                         className="w-full p-3 text-left hover:bg-accent transition-colors"
                       >
                         <span className="text-sm">
@@ -171,12 +124,12 @@ export function KeyListView({ realEstate }: KeyListViewProps) {
                       </button>
                     ))}
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
 
       {selectedKey && selectedCategory && (
         <KeyDetailsModal

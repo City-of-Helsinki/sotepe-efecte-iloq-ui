@@ -27,28 +27,34 @@ describe('POST /api/redis/person-mapping', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     const { getRedisKey } = await import('@/lib/redis/operations')
-    vi.mocked(getRedisKey).mockResolvedValue(JSON.stringify({ customerCode: 'CC1' }))
+    vi.mocked(getRedisKey).mockResolvedValue(
+      JSON.stringify({ customerCode: 'CC1' })
+    )
   })
 
   it('returns 401 when not authenticated', async () => {
     const { getServerSession } = await import('next-auth')
     vi.mocked(getServerSession).mockResolvedValue(null)
 
-    const request = new NextRequest('http://localhost/api/redis/person-mapping', {
-      method: 'POST',
-      body: JSON.stringify({
-        personId: 'p1',
-        realEstateId: 're1',
-        keyId: 'k1',
-        mapping: { entityId: '123', efecteId: 'PER-00012345' },
-      }),
-    })
+    const request = new NextRequest(
+      'http://localhost/api/redis/person-mapping',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          personId: 'p1',
+          realEstateId: 're1',
+          keyId: 'k1',
+          mapping: { entityId: '123', efecteId: 'PER-00012345' },
+        }),
+      }
+    )
 
     const response = await POST(request)
     const data = await response.json()
 
     expect(response.status).toBe(401)
     expect(data.error).toBe('Unauthorized')
+    expect(data.code).toBe('UNAUTHORIZED')
   })
 
   it('returns 400 when required fields are missing', async () => {
@@ -57,21 +63,27 @@ describe('POST /api/redis/person-mapping', () => {
       user: { name: 'test', role: 'admin', username: 'test' },
     } as any)
 
-    const request = new NextRequest('http://localhost/api/redis/person-mapping', {
-      method: 'POST',
-      body: JSON.stringify({ personId: 'p1' }),
-    })
+    const request = new NextRequest(
+      'http://localhost/api/redis/person-mapping',
+      {
+        method: 'POST',
+        body: JSON.stringify({ personId: 'p1' }),
+      }
+    )
 
     const response = await POST(request)
     const data = await response.json()
 
     expect(response.status).toBe(400)
     expect(data.error).toContain('required')
+    expect(data.code).toBe('INVALID_REQUEST')
   })
 
   it('saves person mapping successfully', async () => {
     const { getServerSession } = await import('next-auth')
-    const { setRedisKey, deleteRedisKey } = await import('@/lib/redis/operations')
+    const { setRedisKey, deleteRedisKey } = await import(
+      '@/lib/redis/operations'
+    )
 
     vi.mocked(getServerSession).mockResolvedValue({
       user: { name: 'test', role: 'admin', username: 'test' },
@@ -80,15 +92,18 @@ describe('POST /api/redis/person-mapping', () => {
     vi.mocked(setRedisKey).mockResolvedValue()
     vi.mocked(deleteRedisKey).mockResolvedValue()
 
-    const request = new NextRequest('http://localhost/api/redis/person-mapping', {
-      method: 'POST',
-      body: JSON.stringify({
-        personId: 'person-1',
-        realEstateId: 're-1',
-        keyId: 'key-1',
-        mapping: { entityId: '123456', efecteId: 'PER-00012345' },
-      }),
-    })
+    const request = new NextRequest(
+      'http://localhost/api/redis/person-mapping',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          personId: 'person-1',
+          realEstateId: 're-1',
+          keyId: 'key-1',
+          mapping: { entityId: '123456', efecteId: 'PER-00012345' },
+        }),
+      }
+    )
 
     const response = await POST(request)
     const data = await response.json()
@@ -103,13 +118,17 @@ describe('POST /api/redis/person-mapping', () => {
       `${KEY_PREFIX}:mapped:person:efecte:CC1:123456`,
       'person-1'
     )
-    expect(deleteRedisKey).toHaveBeenCalledWith(`${KEY_PREFIX}:auditRecord:iLoq:key:re-1:key-1`)
+    expect(deleteRedisKey).toHaveBeenCalledWith(
+      `${KEY_PREFIX}:auditRecord:iLoq:key:re-1:key-1`
+    )
     expect(deleteRedisKey).toHaveBeenCalledTimes(2) // audit record + persons key
   })
 
   it('saves outsider mapping successfully', async () => {
     const { getServerSession } = await import('next-auth')
-    const { setRedisKey, deleteRedisKey } = await import('@/lib/redis/operations')
+    const { setRedisKey, deleteRedisKey } = await import(
+      '@/lib/redis/operations'
+    )
 
     vi.mocked(getServerSession).mockResolvedValue({
       user: { name: 'test', role: 'admin', username: 'test' },
@@ -118,15 +137,18 @@ describe('POST /api/redis/person-mapping', () => {
     vi.mocked(setRedisKey).mockResolvedValue()
     vi.mocked(deleteRedisKey).mockResolvedValue()
 
-    const request = new NextRequest('http://localhost/api/redis/person-mapping', {
-      method: 'POST',
-      body: JSON.stringify({
-        personId: 'person-1',
-        realEstateId: 're-1',
-        keyId: 'key-1',
-        mapping: { outsiderName: 'John Doe', outsiderEmail: 'john@test.com' },
-      }),
-    })
+    const request = new NextRequest(
+      'http://localhost/api/redis/person-mapping',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          personId: 'person-1',
+          realEstateId: 're-1',
+          keyId: 'key-1',
+          mapping: { outsiderName: 'John Doe', outsiderEmail: 'john@test.com' },
+        }),
+      }
+    )
 
     const response = await POST(request)
     const data = await response.json()
@@ -135,7 +157,10 @@ describe('POST /api/redis/person-mapping', () => {
     expect(data.success).toBe(true)
     expect(setRedisKey).toHaveBeenCalledWith(
       `${KEY_PREFIX}:mapped:person:iLoq:CC1:person-1`,
-      JSON.stringify({ outsiderName: 'John Doe', outsiderEmail: 'john@test.com' })
+      JSON.stringify({
+        outsiderName: 'John Doe',
+        outsiderEmail: 'john@test.com',
+      })
     )
     expect(setRedisKey).toHaveBeenCalledWith(
       `${KEY_PREFIX}:mapped:person:efecte:CC1:john@test.com#JODO`,
@@ -148,7 +173,9 @@ describe('POST /api/redis/person-mapping', () => {
     ['audit record is missing', null],
   ])('returns 409 and saves nothing when %s', async (_, auditRecord) => {
     const { getServerSession } = await import('next-auth')
-    const { getRedisKey, setRedisKey, deleteRedisKey } = await import('@/lib/redis/operations')
+    const { getRedisKey, setRedisKey, deleteRedisKey } = await import(
+      '@/lib/redis/operations'
+    )
 
     vi.mocked(getServerSession).mockResolvedValue({
       user: { name: 'test', role: 'admin', username: 'test' },
@@ -156,21 +183,25 @@ describe('POST /api/redis/person-mapping', () => {
 
     vi.mocked(getRedisKey).mockResolvedValue(auditRecord)
 
-    const request = new NextRequest('http://localhost/api/redis/person-mapping', {
-      method: 'POST',
-      body: JSON.stringify({
-        personId: 'person-1',
-        realEstateId: 're-1',
-        keyId: 'key-1',
-        mapping: { entityId: '123456', efecteId: 'PER-00012345' },
-      }),
-    })
+    const request = new NextRequest(
+      'http://localhost/api/redis/person-mapping',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          personId: 'person-1',
+          realEstateId: 're-1',
+          keyId: 'key-1',
+          mapping: { entityId: '123456', efecteId: 'PER-00012345' },
+        }),
+      }
+    )
 
     const response = await POST(request)
     const data = await response.json()
 
     expect(response.status).toBe(409)
     expect(data.error).toContain('Customer code')
+    expect(data.code).toBe('CUSTOMER_CODE_MISSING')
     expect(setRedisKey).not.toHaveBeenCalled()
     expect(deleteRedisKey).not.toHaveBeenCalled()
   })
@@ -185,20 +216,24 @@ describe('POST /api/redis/person-mapping', () => {
 
     vi.mocked(setRedisKey).mockRejectedValue(new Error('Redis write failed'))
 
-    const request = new NextRequest('http://localhost/api/redis/person-mapping', {
-      method: 'POST',
-      body: JSON.stringify({
-        personId: 'person-1',
-        realEstateId: 're-1',
-        keyId: 'key-1',
-        mapping: { entityId: '123456', efecteId: 'PER-00012345' },
-      }),
-    })
+    const request = new NextRequest(
+      'http://localhost/api/redis/person-mapping',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          personId: 'person-1',
+          realEstateId: 're-1',
+          keyId: 'key-1',
+          mapping: { entityId: '123456', efecteId: 'PER-00012345' },
+        }),
+      }
+    )
 
     const response = await POST(request)
     const data = await response.json()
 
     expect(response.status).toBe(500)
     expect(data.error).toBe('Internal server error')
+    expect(data.code).toBe('SAVE_FAILED')
   })
 })

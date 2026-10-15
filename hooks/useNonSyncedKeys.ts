@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import type { RealEstateGroup, AuditRecord } from '@/types'
+import type {
+  RealEstateGroup,
+  AuditRecord,
+  NonSyncedKeysResponse,
+} from '@/types'
+import { isShownInUi } from '@/lib/non-synced-keys/categories'
 
-interface NonSyncedKeysData {
-  realEstates: RealEstateGroup[]
-  lastIntegrationRun: string | null
-}
-
-async function fetchNonSyncedKeys(): Promise<NonSyncedKeysData> {
+async function fetchNonSyncedKeys(): Promise<NonSyncedKeysResponse> {
   // Fetch keys
   const keysResponse = await fetch('/api/redis/non-synced-keys')
   if (!keysResponse.ok) {
@@ -15,7 +15,7 @@ async function fetchNonSyncedKeys(): Promise<NonSyncedKeysData> {
   const keysData = await keysResponse.json()
 
   // Fetch timestamp
-  let formattedTimestamp: string | null = null
+  let lastIntegrationRun: Date | null = null
   try {
     const timestampResponse = await fetch('/api/redis/integration-timestamp')
     if (timestampResponse.ok) {
@@ -26,7 +26,8 @@ async function fetchNonSyncedKeys(): Promise<NonSyncedKeysData> {
         const dateParts = parts[0].split(':')
         const timeParts = parts[1].split(':')
 
-        const date = new Date(
+        // Formatted for the selected language when displayed
+        lastIntegrationRun = new Date(
           Number.parseInt(dateParts[0]),
           Number.parseInt(dateParts[1]) - 1,
           Number.parseInt(dateParts[2]),
@@ -34,14 +35,6 @@ async function fetchNonSyncedKeys(): Promise<NonSyncedKeysData> {
           Number.parseInt(timeParts[1]),
           Number.parseInt(timeParts[2])
         )
-
-        // Format as "Month Day, Year at HH:MM"
-        formattedTimestamp = date.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        })
-        formattedTimestamp += ` at ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
       }
     }
   } catch (error) {
@@ -54,6 +47,12 @@ async function fetchNonSyncedKeys(): Promise<NonSyncedKeysData> {
   keysData.keys.forEach(({ key, value }: { key: string; value: string }) => {
     try {
       const record: AuditRecord = JSON.parse(value)
+
+      // Hidden records are left out before grouping, so real estate key counts match what is shown
+      if (!isShownInUi(record)) {
+        return
+      }
+
       const { realEstateId, realEstateName } = record.iloqKey
 
       if (!realEstatesMap.has(realEstateId)) {
@@ -80,7 +79,7 @@ async function fetchNonSyncedKeys(): Promise<NonSyncedKeysData> {
 
   return {
     realEstates,
-    lastIntegrationRun: formattedTimestamp,
+    lastIntegrationRun,
   }
 }
 

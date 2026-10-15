@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { SyncInformation } from '@/components/non-synced-keys/modal-sections/SyncInformation'
 import type { AuditRecord } from '@/types'
+import { getDictionary, formatDateTime } from '@/lib/i18n'
+
+const t = getDictionary('fi')
 
 describe('SyncInformation', () => {
   const mockKeyData: AuditRecord = {
@@ -48,23 +51,26 @@ describe('SyncInformation', () => {
   it('renders sync information correctly', () => {
     render(<SyncInformation keyData={mockKeyData} />)
 
-    expect(screen.getByText('Sync Information')).toBeInTheDocument()
-    expect(screen.getByText(/Timestamp:/)).toBeInTheDocument()
-    expect(screen.getByText(/Direction:/)).toBeInTheDocument()
-    expect(screen.getByText(/Failure Reason:/)).toBeInTheDocument()
+    expect(screen.getByText(t.syncInformation.title)).toBeInTheDocument()
+    expect(screen.getByText(t.syncInformation.timestamp)).toBeInTheDocument()
+    expect(
+      screen.getByText(t.syncInformation.failureReason)
+    ).toBeInTheDocument()
   })
 
   it('displays formatted timestamp', () => {
     render(<SyncInformation keyData={mockKeyData} />)
 
-    // The timestamp should be formatted as "Month Day, Year at HH:MM"
-    expect(screen.getByText(/November 2, 2025 at/)).toBeInTheDocument()
+    // Formatted for the default language, e.g. "2.11.2025 klo 16.02"
+    const expected = formatDateTime(new Date(mockKeyData.timestamp), 'fi')
+    expect(screen.getByText(new RegExp(expected))).toBeInTheDocument()
+    expect(expected).toMatch(/^2\.11\.2025 klo \d{1,2}\.02$/)
   })
 
-  it('displays sync direction with arrow', () => {
+  it('does not display the sync direction', () => {
     render(<SyncInformation keyData={mockKeyData} />)
 
-    expect(screen.getByText(/ILOQ → EFECTE/)).toBeInTheDocument()
+    expect(screen.queryByText(/ILOQ → EFECTE/)).not.toBeInTheDocument()
   })
 
   it('displays failure message', () => {
@@ -75,18 +81,6 @@ describe('SyncInformation', () => {
     ).toBeInTheDocument()
   })
 
-  it('handles EFECTE to ILOQ direction', () => {
-    const keyDataReverse: AuditRecord = {
-      ...mockKeyData,
-      from: 'EFECTE',
-      to: 'ILOQ',
-    }
-
-    render(<SyncInformation keyData={keyDataReverse} />)
-
-    expect(screen.getByText(/EFECTE → ILOQ/)).toBeInTheDocument()
-  })
-
   it('handles invalid timestamp gracefully', () => {
     const keyDataInvalidTimestamp: AuditRecord = {
       ...mockKeyData,
@@ -95,8 +89,8 @@ describe('SyncInformation', () => {
 
     render(<SyncInformation keyData={keyDataInvalidTimestamp} />)
 
-    // When the date is invalid, it shows "Invalid Date at NaN:NaN"
-    expect(screen.getByText(/Invalid Date/)).toBeInTheDocument()
+    // An invalid date is shown as it is
+    expect(screen.getByText(/invalid-date/)).toBeInTheDocument()
   })
 
   it('displays different failure messages', () => {

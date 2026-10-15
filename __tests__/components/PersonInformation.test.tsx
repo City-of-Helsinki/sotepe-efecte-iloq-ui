@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { PersonInformation } from '@/components/non-synced-keys/modal-sections/PersonInformation'
 import type { ILoqPerson } from '@/types'
+import { getDictionary } from '@/lib/i18n'
+
+const t = getDictionary('fi')
 
 describe('PersonInformation', () => {
   const mockPerson: ILoqPerson = {
@@ -31,9 +34,7 @@ describe('PersonInformation', () => {
   it('renders person information header', () => {
     render(<PersonInformation person={mockPerson} />)
 
-    expect(
-      screen.getByText('Person Information (from iLOQ)')
-    ).toBeInTheDocument()
+    expect(screen.getByText(t.personInformation.title)).toBeInTheDocument()
   })
 
   it('displays all person fields correctly', () => {
@@ -86,9 +87,11 @@ describe('PersonInformation', () => {
   it('displays ExternalCanEdit as true when true', () => {
     render(<PersonInformation person={mockPerson} />)
 
-    const externalCanEditLabel = screen.getByText('External Can Edit:')
+    const externalCanEditLabel = screen.getByText(
+      t.personInformation.externalCanEdit
+    )
     const externalCanEditValue = externalCanEditLabel.parentElement?.textContent
-    expect(externalCanEditValue).toContain('true')
+    expect(externalCanEditValue).toContain(t.personInformation.yes)
   })
 
   it('displays ExternalCanEdit as false when false', () => {
@@ -99,15 +102,17 @@ describe('PersonInformation', () => {
 
     render(<PersonInformation person={personWithFalseFlag} />)
 
-    const externalCanEditLabel = screen.getByText('External Can Edit:')
+    const externalCanEditLabel = screen.getByText(
+      t.personInformation.externalCanEdit
+    )
     const externalCanEditValue = externalCanEditLabel.parentElement?.textContent
-    expect(externalCanEditValue).toContain('false')
+    expect(externalCanEditValue).toContain(t.personInformation.no)
   })
 
   it('displays State value directly', () => {
     render(<PersonInformation person={mockPerson} />)
 
-    const stateLabel = screen.getByText('State:')
+    const stateLabel = screen.getByText(t.personInformation.state)
     const stateValue = stateLabel.parentElement?.textContent
     expect(stateValue).toContain('1')
   })
@@ -141,7 +146,7 @@ describe('PersonInformation', () => {
   it('displays language code', () => {
     render(<PersonInformation person={mockPerson} />)
 
-    const languageCodeLabel = screen.getByText('Language Code:')
+    const languageCodeLabel = screen.getByText(t.personInformation.languageCode)
     const languageCodeValue = languageCodeLabel.parentElement?.textContent
     expect(languageCodeValue).toContain('en')
   })

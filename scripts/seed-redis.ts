@@ -1,651 +1,429 @@
 import { getRedisClient } from '../lib/redis/client'
-import type { AuditRecord } from '../types'
+import type { AuditRecord, EfectePerson, ILoqPerson } from '../types'
 
 const redis = getRedisClient()
 
-// Sample data for multiple matching persons scenario
-const sampleAuditRecords: AuditRecord[] = [
-  {
-    id: '1',
-    timestamp: new Date().toISOString(),
+const PREFIX = 'efecte-iLoq-synchronization-integration'
+const CUSTOMER_CODE = 'ILOQ_DEV_1'
+// Same as the production AUDIT_EXCEPTION_EXPIRATION_SECONDS (3 days)
+const AUDIT_RECORD_TTL_SECONDS = 259200
+
+// Audit messages exactly as the integration writes them
+const messages = {
+  multipleMatching: (name: string) =>
+    `Multiple matching key holders found for iLOQ person '${name}' at Efecte`,
+  noMatching: (personId: string) =>
+    `Unable to create a new key card in Efecte. No matching key holder was found for the specified iLOQ person (${personId}).`,
+  outsider: (personId: string) =>
+    `The iLOQ person (${personId}) is an outsider, and we currently don't create Efecte keys for outsiders.`,
+  // Technical failures are not shown in the UI
+  efecteCreateFailed:
+    'Creating Efecte key failed. Server response: <entityset><error>Required attribute missing</error></entityset>',
+  iLoqUpdateFailed:
+    'Processing an iLOQ key failed (operation: update). Server response: {"Message":"Key is being programmed"}',
+}
+
+const realEstates = {
+  kamppi: {
+    id: '30853116-530b-4884-84a0-740a4aaa976f',
+    name: '100 Malminkatu 3, Kampin perhekeskus',
+  },
+  ruoholahti: {
+    id: 'c17e6900-0e68-4153-a6f9-316797664ba5',
+    name: '180 Itämerenkatu 5, Koy Itämerenkatu 5',
+  },
+  malmi: {
+    id: '7d1f0c2a-5b8e-4f3a-9c1d-2e6b8a4f0c11',
+    name: '700 Ala-Malmin tori 1, Malmin perhekeskus',
+  },
+  // Has only technical failures, so the whole real estate is hidden in the UI
+  sturenkatu: {
+    id: '926d4480-c419-481e-beb8-d63d68933dca',
+    name: '510 Sturenkatu 8, Sturenkadun palvelukeskus',
+  },
+}
+
+type RealEstate = (typeof realEstates)[keyof typeof realEstates]
+
+function iLoqPerson(
+  personId: string,
+  firstName: string,
+  lastName: string,
+  extra: Partial<ILoqPerson> = {}
+): ILoqPerson {
+  return {
+    Person_ID: personId,
+    FirstName: firstName,
+    LastName: lastName,
+    eMail: '',
+    Phone1: '',
+    Phone2: '',
+    Phone3: '',
+    WorkTitle: '',
+    CompanyName: '',
+    Address: '',
+    ZipCode: '',
+    PostOffice: '',
+    Country: '',
+    PersonCode: '',
+    LanguageCode: 'fi-FI',
+    ContactInfo: '',
+    Description: '',
+    EmploymentEndDate: null,
+    State: 0,
+    ExternalCanEdit: true,
+    ExternalPersonId: null,
+    ...extra,
+  }
+}
+
+let recordCounter = 0
+
+function auditRecord(
+  realEstate: RealEstate,
+  description: string,
+  person: ILoqPerson,
+  message: string,
+  securityAccesses: string[],
+  options: { customerCode?: string | null; state?: number } = {}
+): AuditRecord {
+  recordCounter++
+  const keyId = `seed-key-${String(recordCounter).padStart(3, '0')}`
+  // The integration writes a local time without a time zone, e.g. "2026-10-15T09:30:00"
+  const time = new Date(Date.now() - recordCounter * 60_000)
+  const timestamp = new Date(time.getTime() - time.getTimezoneOffset() * 60_000)
+
+  return {
+    id: `seed-${recordCounter}`,
+    timestamp: timestamp.toISOString().slice(0, 19),
     from: 'ILOQ',
     to: 'EFECTE',
-    message: 'Multiple matching key holders found for iLOQ person',
-    iLoqId: 'key-001',
+    message,
+    iLoqId: keyId,
+    // null = an old record written before the customer code was added
+    ...(options.customerCode === null
+      ? {}
+      : { customerCode: options.customerCode ?? CUSTOMER_CODE }),
     iloqKey: {
-      fnKeyId: 'key-001',
-      description: 'Main Entrance Key',
-      realEstateId: 'building-a',
-      realEstateName: 'Building A - Headquarters',
-      state: 1,
-      InfoText: 'Key for main entrance',
-      person: {
-        Person_ID: 'person-001',
-        FirstName: 'John',
-        LastName: 'Doe',
-        eMail: 'john.doe@example.com',
-        Phone1: '+358401234567',
-        Phone2: '',
-        Phone3: '',
-        WorkTitle: 'Manager',
-        CompanyName: 'Helsinki City',
-        Address: 'Street 1',
-        ZipCode: '00100',
-        PostOffice: 'Helsinki',
-        Country: 'Finland',
-        PersonCode: 'JD001',
-        LanguageCode: 'fi',
-        ContactInfo: '',
-        Description: 'Department manager',
-        EmploymentEndDate: '',
-        State: 1,
-        ExternalCanEdit: true,
-        ExternalPersonId: '',
-      },
-      securityAccesses: [
-        {
-          Name: 'Main Entrance',
-          RealEstate_ID: 'building-a',
-          SecurityAccess_ID: 'access-001',
-        },
-        {
-          Name: 'Parking Garage',
-          RealEstate_ID: 'building-a',
-          SecurityAccess_ID: 'access-002',
-        },
-      ],
+      fnKeyId: keyId,
+      description,
+      realEstateId: realEstate.id,
+      realEstateName: realEstate.name,
+      state: options.state ?? 1,
+      InfoText: '',
+      person,
+      securityAccesses: securityAccesses.map((name, index) => ({
+        Name: name,
+        RealEstate_ID: realEstate.id,
+        SecurityAccess_ID: `${keyId}-sa-${index + 1}`,
+      })),
     },
-  },
+  }
+}
+
+function efectePerson(
+  entityId: string,
+  efecteId: string,
+  fullName: string,
+  details: {
+    email: string
+    title: string
+    department: string
+    office: string
+    status: 'Active' | 'Inactive'
+    streetAddresses?: string[]
+  }
+): EfectePerson {
+  return {
+    id: entityId,
+    name: fullName,
+    attributes: [
+      {
+        id: '3537',
+        name: 'Entity ID',
+        code: 'person_entityid',
+        value: entityId,
+      },
+      { id: '1350', name: 'Efecte ID', code: 'efecte_id', value: efecteId },
+      { id: '1338', name: 'Koko nimi', code: 'full_name', value: fullName },
+      { id: '1341', name: 'Sähköposti', code: 'email', value: details.email },
+      {
+        id: '1340',
+        name: 'Matkapuhelin',
+        code: 'mobile',
+        value: '+358 40 123 4567',
+      },
+      { id: '1343', name: 'Puhelin', code: 'phone', value: '09 310 12345' },
+      { id: '1339', name: 'Titteli', code: 'title', value: details.title },
+      {
+        id: '1769',
+        name: 'Osasto',
+        code: 'department',
+        value: details.department,
+      },
+      { id: '1770', name: 'Toimipiste', code: 'office', value: details.office },
+      { id: '1782', name: 'Status', code: 'status', value: details.status },
+      {
+        id: '9999',
+        name: 'Katuosoite',
+        code: 'street_address',
+        references: (details.streetAddresses ?? []).map((name, index) => ({
+          id: `${entityId}-addr-${index + 1}`,
+          name,
+        })),
+      },
+    ],
+  }
+}
+
+// Multiple matching persons, each with the Efecte persons found by name
+const taru = iLoqPerson(
+  '8b20eb5c-3ab2-427a-ba1b-72b0aa000001',
+  'Taru',
+  'Paavilainen',
   {
-    id: '2',
-    timestamp: new Date().toISOString(),
-    from: 'ILOQ',
-    to: 'EFECTE',
-    message: 'No matching key holder / outsider found',
-    iLoqId: 'key-002',
-    iloqKey: {
-      fnKeyId: 'key-002',
-      description: 'Office Room 301',
-      realEstateId: 'building-a',
-      realEstateName: 'Building A - Headquarters',
-      state: 1,
-      InfoText: 'Office access key',
-      person: {
-        Person_ID: 'person-002',
-        FirstName: 'Jane',
-        LastName: 'Smith',
-        eMail: 'jane.smith@example.com',
-        Phone1: '+358501234567',
-        Phone2: '',
-        Phone3: '',
-        WorkTitle: 'Senior Analyst',
-        CompanyName: 'Helsinki City',
-        Address: 'Street 2',
-        ZipCode: '00100',
-        PostOffice: 'Helsinki',
-        Country: 'Finland',
-        PersonCode: 'JS001',
-        LanguageCode: 'fi',
-        ContactInfo: '',
-        Description: '',
-        EmploymentEndDate: '',
-        State: 1,
-        ExternalCanEdit: true,
-        ExternalPersonId: '',
-      },
-      securityAccesses: [
-        {
-          Name: 'Office Floor 3',
-          RealEstate_ID: 'building-a',
-          SecurityAccess_ID: 'access-003',
-        },
-      ],
-    },
-  },
+    ExternalPersonId: '5120001',
+  }
+)
+const pia = iLoqPerson(
+  '8b20eb5c-3ab2-427a-ba1b-72b0aa000002',
+  'Pia',
+  'Andersson',
   {
-    id: '3',
-    timestamp: new Date().toISOString(),
-    from: 'ILOQ',
-    to: 'EFECTE',
-    message: 'Multiple matching key holders found for iLOQ person',
-    iLoqId: 'key-003',
-    iloqKey: {
-      fnKeyId: 'key-003',
-      description: 'Server Room Access',
-      realEstateId: 'building-b',
-      realEstateName: 'Building B - Data Center',
-      state: 1,
-      InfoText: 'Restricted area',
-      person: {
-        Person_ID: 'person-003',
-        FirstName: 'Bob',
-        LastName: 'Johnson',
-        eMail: 'bob.johnson@example.com',
-        Phone1: '+358451234567',
-        Phone2: '',
-        Phone3: '',
-        WorkTitle: 'IT Administrator',
-        CompanyName: 'Helsinki City',
-        Address: 'Street 3',
-        ZipCode: '00200',
-        PostOffice: 'Helsinki',
-        Country: 'Finland',
-        PersonCode: 'BJ001',
-        LanguageCode: 'en',
-        ContactInfo: '',
-        Description: 'IT Department',
-        EmploymentEndDate: '',
-        State: 1,
-        ExternalCanEdit: true,
-        ExternalPersonId: '',
-      },
-      securityAccesses: [
-        {
-          Name: 'Server Room',
-          RealEstate_ID: 'building-b',
-          SecurityAccess_ID: 'access-004',
-        },
-        {
-          Name: 'Network Equipment Room',
-          RealEstate_ID: 'building-b',
-          SecurityAccess_ID: 'access-005',
-        },
-      ],
-    },
-  },
-  {
-    id: '4',
-    timestamp: new Date().toISOString(),
-    from: 'ILOQ',
-    to: 'EFECTE',
-    message: 'No matching key holder / outsider found',
-    iLoqId: 'key-004',
-    iloqKey: {
-      fnKeyId: 'key-004',
-      description: 'Meeting Room B',
-      realEstateId: 'building-b',
-      realEstateName: 'Building B - Data Center',
-      state: 1,
-      InfoText: 'Conference room key',
-      person: {
-        Person_ID: 'person-004',
-        FirstName: 'Alice',
-        LastName: 'Williams',
-        eMail: 'alice.williams@example.com',
-        Phone1: '+358401111111',
-        Phone2: '',
-        Phone3: '',
-        WorkTitle: 'Project Manager',
-        CompanyName: 'Helsinki City',
-        Address: 'Street 4',
-        ZipCode: '00200',
-        PostOffice: 'Helsinki',
-        Country: 'Finland',
-        PersonCode: 'AW001',
-        LanguageCode: 'fi',
-        ContactInfo: '',
-        Description: '',
-        EmploymentEndDate: '',
-        State: 1,
-        ExternalCanEdit: true,
-        ExternalPersonId: '',
-      },
-      securityAccesses: [
-        {
-          Name: 'Meeting Rooms',
-          RealEstate_ID: 'building-b',
-          SecurityAccess_ID: 'access-006',
-        },
-      ],
-    },
-  },
-  {
-    id: '5',
-    timestamp: new Date().toISOString(),
-    from: 'ILOQ',
-    to: 'EFECTE',
-    message: 'Multiple matching key holders found for iLOQ person',
-    iLoqId: 'key-005',
-    iloqKey: {
-      fnKeyId: 'key-005',
-      description: 'Storage Room 1A',
-      realEstateId: 'building-c',
-      realEstateName: 'Building C - Warehouse',
-      state: 1,
-      InfoText: 'Storage access',
-      person: {
-        Person_ID: 'person-005',
-        FirstName: 'Charlie',
-        LastName: 'Brown',
-        eMail: 'charlie.brown@example.com',
-        Phone1: '+358402222222',
-        Phone2: '',
-        Phone3: '',
-        WorkTitle: 'Logistics Coordinator',
-        CompanyName: 'Helsinki City',
-        Address: 'Street 5',
-        ZipCode: '00300',
-        PostOffice: 'Helsinki',
-        Country: 'Finland',
-        PersonCode: 'CB001',
-        LanguageCode: 'fi',
-        ContactInfo: '',
-        Description: 'Warehouse team',
-        EmploymentEndDate: '',
-        State: 1,
-        ExternalCanEdit: true,
-        ExternalPersonId: '',
-      },
-      securityAccesses: [
-        {
-          Name: 'Storage Areas',
-          RealEstate_ID: 'building-c',
-          SecurityAccess_ID: 'access-007',
-        },
-      ],
-    },
-  },
+    WorkTitle: 'Sairaanhoitaja',
+  }
+)
+const mikko = iLoqPerson(
+  '8b20eb5c-3ab2-427a-ba1b-72b0aa000003',
+  'Mikko',
+  'Virtanen'
+)
+
+const efectePersonsByILoqPerson: Record<string, EfectePerson[]> = {
+  [taru.Person_ID]: [
+    efectePerson('5120001', 'PER-00051201', 'Taru Paavilainen', {
+      email: 'taru.paavilainen@hel.fi',
+      title: 'Terveydenhoitaja',
+      department: 'Perhekeskukset',
+      office: 'Kampin perhekeskus',
+      status: 'Active',
+      streetAddresses: ['Malminkatu 3, 00100, Helsinki'],
+    }),
+    efectePerson('5120002', 'PER-00051202', 'Taru Paavilainen', {
+      email: 'taru.k.paavilainen@hel.fi',
+      title: 'Sosiaaliohjaaja',
+      department: 'Aikuissosiaalityö',
+      office: 'Kallion sosiaaliasema',
+      status: 'Active',
+      streetAddresses: ['Toinen linja 4, 00530, Helsinki'],
+    }),
+  ],
+  [pia.Person_ID]: [
+    efectePerson('4980101', 'PER-00049801', 'Pia Andersson', {
+      email: 'pia.andersson@hel.fi',
+      title: 'Sairaanhoitaja',
+      department: 'Terveysasemat',
+      office: 'Ruoholahden terveysasema',
+      status: 'Inactive',
+    }),
+    efectePerson('5198858', 'PER-00051988', 'Pia Andersson', {
+      email: 'pia.andersson2@hel.fi',
+      title: 'Sairaanhoitaja',
+      department: 'Terveysasemat',
+      office: 'Ruoholahden terveysasema',
+      status: 'Active',
+      streetAddresses: ['Itämerenkatu 5, 00180, Helsinki'],
+    }),
+    efectePerson('5198900', 'PER-00051990', 'Pia Andersson', {
+      email: 'pia.m.andersson@hel.fi',
+      title: 'Toimistosihteeri',
+      department: 'Hallinto',
+      office: 'Kaupungintalo',
+      status: 'Active',
+    }),
+  ],
+  [mikko.Person_ID]: [
+    efectePerson('3001001', 'PER-00030010', 'Mikko Virtanen', {
+      email: 'mikko.virtanen@hel.fi',
+      title: 'Vahtimestari',
+      department: 'Kiinteistöpalvelut',
+      office: 'Ruoholahti',
+      status: 'Active',
+      streetAddresses: ['Itämerenkatu 5, 00180, Helsinki'],
+    }),
+    efectePerson('3001002', 'PER-00030020', 'Mikko Virtanen', {
+      email: 'mikko.j.virtanen@hel.fi',
+      title: 'IT-tukihenkilö',
+      department: 'Digitalisaatio',
+      office: 'Kalasatama',
+      status: 'Active',
+    }),
+  ],
+}
+
+const auditRecords: AuditRecord[] = [
+  // Kampin perhekeskus: all three categories and one hidden technical failure
+  auditRecord(
+    realEstates.kamppi,
+    '001 Kampin pk yleisavain',
+    taru,
+    messages.multipleMatching('Taru Paavilainen'),
+    ['001. Kampin pk yleisavain', '004.03 Kampin pk 1. kerros']
+  ),
+  auditRecord(
+    realEstates.kamppi,
+    '002 Kampin pk huoltoavain',
+    iLoqPerson('8b20eb5c-3ab2-427a-ba1b-72b0aa000004', 'Rosa', 'Priuska'),
+    messages.noMatching('8b20eb5c-3ab2-427a-ba1b-72b0aa000004'),
+    ['002. Kampin pk huoltoavain']
+  ),
+  auditRecord(
+    realEstates.kamppi,
+    '004.04 Kampin pk 2. kerros',
+    iLoqPerson('8b20eb5c-3ab2-427a-ba1b-72b0aa000005', 'Matti', 'Meikäläinen', {
+      Description: 'Sijainen syksy 2026',
+    }),
+    messages.noMatching('8b20eb5c-3ab2-427a-ba1b-72b0aa000005'),
+    ['004.04 Kampin pk 2. kerros']
+  ),
+  auditRecord(
+    realEstates.kamppi,
+    '006 Kampin pk vahtimestariavain',
+    iLoqPerson('8b20eb5c-3ab2-427a-ba1b-72b0aa000006', 'Olli', 'Ulkopuolinen', {
+      CompanyName: 'Kiinteistöhuolto Oy',
+      eMail: 'olli@kiinteistohuolto.fi',
+      ExternalPersonId: 'olli@kiinteistohuolto.fi#OLUL',
+    }),
+    messages.outsider('8b20eb5c-3ab2-427a-ba1b-72b0aa000006'),
+    ['006 Kampin pk vahtimestariavain']
+  ),
+  auditRecord(
+    realEstates.kamppi,
+    '005 Kampin pk lääkehuone',
+    iLoqPerson('8b20eb5c-3ab2-427a-ba1b-72b0aa000007', 'Liisa', 'Lääkäri'),
+    messages.efecteCreateFailed,
+    ['005 Kampin pk lääkehuone']
+  ),
+
+  // Ruoholahti: two multiple matching cases and an outsider
+  auditRecord(
+    realEstates.ruoholahti,
+    '01. Ruoholahti henkilökunta',
+    pia,
+    messages.multipleMatching('Pia Andersson'),
+    ['01. Ruoholahti henkilökunta', '02. Ruoholahti henkilökunta + lääkehuone']
+  ),
+  auditRecord(
+    realEstates.ruoholahti,
+    '03. Ruoholahti tekniset tilat',
+    mikko,
+    messages.multipleMatching('Mikko Virtanen'),
+    ['03. Ruoholahti tekniset tilat']
+  ),
+  auditRecord(
+    realEstates.ruoholahti,
+    '01. Ruoholahti henkilökunta (siivous)',
+    iLoqPerson('8b20eb5c-3ab2-427a-ba1b-72b0aa000008', 'Sanna', 'Siivooja', {
+      CompanyName: 'Siivous Oy',
+      ExternalPersonId: 'sanna@siivous.fi#SASI',
+    }),
+    messages.outsider('8b20eb5c-3ab2-427a-ba1b-72b0aa000008'),
+    ['01. Ruoholahti henkilökunta']
+  ),
+
+  // Malmi: a returned key and an old record without a customer code (saving shows the "try later" message)
+  auditRecord(
+    realEstates.malmi,
+    'Malmin pk ulko-ovi',
+    iLoqPerson('8b20eb5c-3ab2-427a-ba1b-72b0aa000009', 'Kalle', 'Palautettu', {
+      EmploymentEndDate: '2026-08-31',
+    }),
+    messages.noMatching('8b20eb5c-3ab2-427a-ba1b-72b0aa000009'),
+    ['Malmin pk ulko-ovi'],
+    { state: 4 }
+  ),
+  auditRecord(
+    realEstates.malmi,
+    'Malmin pk henkilökunta',
+    iLoqPerson('8b20eb5c-3ab2-427a-ba1b-72b0aa000010', 'Vilma', 'Vanharivi'),
+    messages.noMatching('8b20eb5c-3ab2-427a-ba1b-72b0aa000010'),
+    ['Malmin pk henkilökunta'],
+    { customerCode: null }
+  ),
+
+  // Sturenkatu: only technical failures, the real estate is not shown at all
+  auditRecord(
+    realEstates.sturenkatu,
+    '3- SAS palvelut',
+    iLoqPerson('8b20eb5c-3ab2-427a-ba1b-72b0aa000011', 'Henri', 'Hoitaja'),
+    messages.iLoqUpdateFailed,
+    ['103 Sas-Palvelut']
+  ),
 ]
 
-// Sample Efecte persons for the "multiple matching" scenarios
-const efectePersonsForPerson001 = [
-  {
-    id: '123456',
-    name: 'John Doe',
-    attributes: [
-      {
-        id: '3537',
-        name: 'entity_id',
-        code: 'person_entityid',
-        value: '123456',
-      },
-      {
-        id: '1350',
-        name: 'Efecte ID',
-        code: 'efecte_id',
-        value: 'PER-00012345',
-      },
-      { id: '1338', name: 'Koko nimi', code: 'full_name', value: 'John Doe' },
-      {
-        id: '1341',
-        name: 'Sähköposti',
-        code: 'email',
-        value: 'john.doe@helsinki.fi',
-      },
-      {
-        id: '1340',
-        name: 'Matkapuhelin',
-        code: 'mobile',
-        value: '+358401234567',
-      },
-      {
-        id: '1343',
-        name: 'Puhelinnumero',
-        code: 'phone',
-        value: '(09) 310 11111',
-      },
-      { id: '1339', name: 'Titteli', code: 'title', value: 'Manager' },
-      {
-        id: '1769',
-        name: 'Department',
-        code: 'department',
-        value: 'IT Services',
-      },
-      { id: '1770', name: 'Office', code: 'office', value: 'Helsinki Office' },
-      { id: '1782', name: 'Status', code: 'status', value: 'Active' },
-    ],
-  },
-  {
-    id: '789012',
-    name: 'John Doe',
-    attributes: [
-      {
-        id: '3537',
-        name: 'entity_id',
-        code: 'person_entityid',
-        value: '789012',
-      },
-      {
-        id: '1350',
-        name: 'Efecte ID',
-        code: 'efecte_id',
-        value: 'PER-00067890',
-      },
-      { id: '1338', name: 'Koko nimi', code: 'full_name', value: 'John Doe' },
-      {
-        id: '1341',
-        name: 'Sähköposti',
-        code: 'email',
-        value: 'j.doe@helsinki.fi',
-      },
-      {
-        id: '1340',
-        name: 'Matkapuhelin',
-        code: 'mobile',
-        value: '+358407654321',
-      },
-      {
-        id: '1343',
-        name: 'Puhelinnumero',
-        code: 'phone',
-        value: '(09) 310 22222',
-      },
-      { id: '1339', name: 'Titteli', code: 'title', value: 'Senior Manager' },
-      { id: '1769', name: 'Department', code: 'department', value: 'HR' },
-      { id: '1770', name: 'Office', code: 'office', value: 'Espoo Office' },
-      { id: '1782', name: 'Status', code: 'status', value: 'Active' },
-    ],
-  },
-]
-
-const efectePersonsForPerson003 = [
-  {
-    id: '345678',
-    name: 'Bob Johnson',
-    attributes: [
-      {
-        id: '3537',
-        name: 'entity_id',
-        code: 'person_entityid',
-        value: '345678',
-      },
-      {
-        id: '1350',
-        name: 'Efecte ID',
-        code: 'efecte_id',
-        value: 'PER-00034567',
-      },
-      {
-        id: '1338',
-        name: 'Koko nimi',
-        code: 'full_name',
-        value: 'Bob Johnson',
-      },
-      {
-        id: '1341',
-        name: 'Sähköposti',
-        code: 'email',
-        value: 'bob.johnson@helsinki.fi',
-      },
-      {
-        id: '1340',
-        name: 'Matkapuhelin',
-        code: 'mobile',
-        value: '+358401111111',
-      },
-      {
-        id: '1343',
-        name: 'Puhelinnumero',
-        code: 'phone',
-        value: '(09) 310 33333',
-      },
-      {
-        id: '1339',
-        name: 'Titteli',
-        code: 'title',
-        value: 'System Administrator',
-      },
-      {
-        id: '1769',
-        name: 'Department',
-        code: 'department',
-        value: 'IT Infrastructure',
-      },
-      {
-        id: '1770',
-        name: 'Office',
-        code: 'office',
-        value: 'Vantaa Data Center',
-      },
-      { id: '1782', name: 'Status', code: 'status', value: 'Active' },
-    ],
-  },
-  {
-    id: '901234',
-    name: 'Robert Johnson',
-    attributes: [
-      {
-        id: '3537',
-        name: 'entity_id',
-        code: 'person_entityid',
-        value: '901234',
-      },
-      {
-        id: '1350',
-        name: 'Efecte ID',
-        code: 'efecte_id',
-        value: 'PER-00090123',
-      },
-      {
-        id: '1338',
-        name: 'Koko nimi',
-        code: 'full_name',
-        value: 'Robert Johnson',
-      },
-      {
-        id: '1341',
-        name: 'Sähköposti',
-        code: 'email',
-        value: 'robert.johnson@helsinki.fi',
-      },
-      {
-        id: '1340',
-        name: 'Matkapuhelin',
-        code: 'mobile',
-        value: '+358402222222',
-      },
-      {
-        id: '1343',
-        name: 'Puhelinnumero',
-        code: 'phone',
-        value: '(09) 310 44444',
-      },
-      {
-        id: '1339',
-        name: 'Titteli',
-        code: 'title',
-        value: 'Security Specialist',
-      },
-      {
-        id: '1769',
-        name: 'Department',
-        code: 'department',
-        value: 'IT Security',
-      },
-      {
-        id: '1770',
-        name: 'Office',
-        code: 'office',
-        value: 'Helsinki Security Center',
-      },
-      { id: '1782', name: 'Status', code: 'status', value: 'Active' },
-    ],
-  },
-]
-
-const efectePersonsForPerson005 = [
-  {
-    id: '567890',
-    name: 'Charlie Brown',
-    attributes: [
-      {
-        id: '3537',
-        name: 'entity_id',
-        code: 'person_entityid',
-        value: '567890',
-      },
-      {
-        id: '1350',
-        name: 'Efecte ID',
-        code: 'efecte_id',
-        value: 'PER-00056789',
-      },
-      {
-        id: '1338',
-        name: 'Koko nimi',
-        code: 'full_name',
-        value: 'Charlie Brown',
-      },
-      {
-        id: '1341',
-        name: 'Sähköposti',
-        code: 'email',
-        value: 'charlie.brown@helsinki.fi',
-      },
-      {
-        id: '1340',
-        name: 'Matkapuhelin',
-        code: 'mobile',
-        value: '+358403333333',
-      },
-      {
-        id: '1343',
-        name: 'Puhelinnumero',
-        code: 'phone',
-        value: '(09) 310 55555',
-      },
-      {
-        id: '1339',
-        name: 'Titteli',
-        code: 'title',
-        value: 'Logistics Coordinator',
-      },
-      {
-        id: '1769',
-        name: 'Department',
-        code: 'department',
-        value: 'Logistics',
-      },
-      { id: '1770', name: 'Office', code: 'office', value: 'Warehouse C' },
-      { id: '1782', name: 'Status', code: 'status', value: 'Active' },
-    ],
-  },
-  {
-    id: '112233',
-    name: 'Charles Brown',
-    attributes: [
-      {
-        id: '3537',
-        name: 'entity_id',
-        code: 'person_entityid',
-        value: '112233',
-      },
-      {
-        id: '1350',
-        name: 'Efecte ID',
-        code: 'efecte_id',
-        value: 'PER-00011223',
-      },
-      {
-        id: '1338',
-        name: 'Koko nimi',
-        code: 'full_name',
-        value: 'Charles Brown',
-      },
-      {
-        id: '1341',
-        name: 'Sähköposti',
-        code: 'email',
-        value: 'c.brown@helsinki.fi',
-      },
-      {
-        id: '1340',
-        name: 'Matkapuhelin',
-        code: 'mobile',
-        value: '+358404444444',
-      },
-      {
-        id: '1343',
-        name: 'Puhelinnumero',
-        code: 'phone',
-        value: '(09) 310 66666',
-      },
-      {
-        id: '1339',
-        name: 'Titteli',
-        code: 'title',
-        value: 'Warehouse Manager',
-      },
-      {
-        id: '1769',
-        name: 'Department',
-        code: 'department',
-        value: 'Warehouse',
-      },
-      { id: '1770', name: 'Office', code: 'office', value: 'Warehouse Main' },
-      { id: '1782', name: 'Status', code: 'status', value: 'Active' },
-    ],
-  },
-]
+async function deleteByPattern(pattern: string): Promise<number> {
+  const keys = await redis.keys(pattern)
+  if (keys.length > 0) {
+    await redis.del(...keys)
+  }
+  return keys.length
+}
 
 async function seedRedis() {
   try {
     console.log('🌱 Seeding Redis with sample data...\n')
 
-    // Clear existing audit records
-    const existingKeys = await redis.keys(
-      'efecte-iLoq-synchronization-integration:auditRecord:iLoq:key:*:*'
-    )
-    if (existingKeys.length > 0) {
-      await redis.del(...existingKeys)
-      console.log(`✓ Cleared ${existingKeys.length} existing audit records`)
-    }
+    const deletedRecords = await deleteByPattern(`${PREFIX}:auditRecord:iLoq:*`)
+    console.log(`✓ Cleared ${deletedRecords} existing audit records`)
 
-    // Clear existing Efecte person records
-    const existingPersonKeys = await redis.keys(
-      'efecte-iLoq-synchronization-integration:auditRecord:iLoq:person:*'
-    )
-    if (existingPersonKeys.length > 0) {
-      await redis.del(...existingPersonKeys)
-      console.log(
-        `✓ Cleared ${existingPersonKeys.length} existing person records`
+    for (const record of auditRecords) {
+      const key = `${PREFIX}:auditRecord:iLoq:key:${record.iloqKey.realEstateId}:${record.iloqKey.fnKeyId}`
+      await redis.set(
+        key,
+        JSON.stringify(record),
+        'EX',
+        AUDIT_RECORD_TTL_SECONDS
       )
     }
+    console.log(`✓ Created ${auditRecords.length} audit records`)
 
-    // Store audit records
-    for (const record of sampleAuditRecords) {
-      const key = `efecte-iLoq-synchronization-integration:auditRecord:iLoq:key:${record.iloqKey.realEstateId}:${record.iloqKey.fnKeyId}`
-      await redis.set(key, JSON.stringify(record))
-      console.log(`✓ Created audit record: ${record.iloqKey.description}`)
+    for (const [personId, persons] of Object.entries(
+      efectePersonsByILoqPerson
+    )) {
+      await redis.set(
+        `${PREFIX}:auditRecord:iLoq:person:${personId}`,
+        JSON.stringify(persons),
+        'EX',
+        AUDIT_RECORD_TTL_SECONDS
+      )
     }
-
-    // Store Efecte persons for multiple matching scenarios
-    await redis.set(
-      'efecte-iLoq-synchronization-integration:auditRecord:iLoq:person:person-001',
-      JSON.stringify(efectePersonsForPerson001)
+    console.log(
+      `✓ Created Efecte person lists for ${Object.keys(efectePersonsByILoqPerson).length} multiple matching cases`
     )
-    console.log('✓ Created Efecte persons for person-001 (John Doe)')
 
-    await redis.set(
-      'efecte-iLoq-synchronization-integration:auditRecord:iLoq:person:person-003',
-      JSON.stringify(efectePersonsForPerson003)
-    )
-    console.log('✓ Created Efecte persons for person-003 (Bob Johnson)')
-
-    await redis.set(
-      'efecte-iLoq-synchronization-integration:auditRecord:iLoq:person:person-005',
-      JSON.stringify(efectePersonsForPerson005)
-    )
-    console.log('✓ Created Efecte persons for person-005 (Charlie Brown)')
-
-    // Store last integration timestamp
-    const timestamp = new Date()
-    const formattedTimestamp = `${timestamp.getFullYear()}:${String(timestamp.getMonth() + 1).padStart(2, '0')}:${String(timestamp.getDate()).padStart(2, '0')} ${String(timestamp.getHours()).padStart(2, '0')}:${String(timestamp.getMinutes()).padStart(2, '0')}:${String(timestamp.getSeconds()).padStart(2, '0')}`
-
-    await redis.set(
-      'efecte-iLoq-synchronization-integration:previousSyncEndedAt',
-      formattedTimestamp
-    )
-    console.log(`✓ Set integration timestamp: ${formattedTimestamp}`)
+    // Same format as the integration: "yyyy:MM:dd HH:mm:ss"
+    const now = new Date()
+    const pad = (value: number) => String(value).padStart(2, '0')
+    const timestamp = `${now.getFullYear()}:${pad(now.getMonth() + 1)}:${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+    await redis.set(`${PREFIX}:previousSyncEndedAt`, timestamp)
+    console.log(`✓ Set integration timestamp: ${timestamp}`)
 
     console.log('\n✅ Redis seeding completed successfully!')
-    console.log('\n📊 Summary:')
-    console.log(`   - 5 audit records created`)
+    console.log('\n📊 Shown in the UI (3 real estates, 9 keys):')
     console.log(
-      `   - 3 real estates: Building A (2 keys), Building B (2 keys), Building C (1 key)`
+      '   - Kampin perhekeskus: multiple matching, 2 × no matching, outsider'
     )
-    console.log(`   - 3 "Multiple matching" scenarios with Efecte persons`)
-    console.log(`   - 2 "No matching" scenarios`)
+    console.log(
+      '   - Ruoholahti: 2 × multiple matching (with active and inactive persons), outsider'
+    )
+    console.log(
+      '   - Malmi: returned key, and an old record without a customer code (save → "try later")'
+    )
+    console.log('\n🙈 Hidden from the UI (technical failures):')
+    console.log('   - Kampin perhekeskus: Efecte key creation failed')
+    console.log(
+      '   - Sturenkatu: iLOQ key update failed (the whole real estate is hidden)'
+    )
     console.log(
       '\n🌐 Visit http://localhost:3000/non-synced-keys to see the data!'
     )
