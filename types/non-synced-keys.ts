@@ -9,6 +9,7 @@ export interface AuditRecord {
   message: string
   iLoqId: string
   iloqKey: ILoqKey
+  customerCode?: string
 }
 
 export interface ILoqKey {

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
-import { setRedisKey, deleteRedisKey } from '@/lib/redis/operations'
+import { getRedisKey, setRedisKey, deleteRedisKey } from '@/lib/redis/operations'
 import { logger } from '@/lib/logger'
-import type { SaveMappingData, PersonMapping, OutsiderMapping } from '@/types'
+import type { AuditRecord, SaveMappingData, PersonMapping, OutsiderMapping } from '@/types'
 
 function isPersonMapping(mapping: PersonMapping | OutsiderMapping): mapping is PersonMapping {
   return 'entityId' in mapping
@@ -67,24 +67,41 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // The integration scopes person mappings by iLOQ customer code, which it stores in the audit record
+    const auditKey = `efecte-iLoq-synchronization-integration:auditRecord:iLoq:key:${realEstateId}:${keyId}`
+    const auditRecordJson = await getRedisKey(auditKey)
+    const customerCode = auditRecordJson
+      ? (JSON.parse(auditRecordJson) as AuditRecord).customerCode
+      : undefined
+
+    if (!customerCode) {
+      logger.warn({ personId, realEstateId, keyId }, 'Customer code missing from audit record')
+      return NextResponse.json(
+        {
+          error:
+            'Customer code is missing from the audit record. Wait for the next integration run and try again.',
+        },
+        { status: 409 }
+      )
+    }
+
     // 1. Write iLoq→Efecte mapping to Redis
-    const iLoqMappingKey = `efecte-iLoq-synchronization-integration:mapped:person:iLoq:${personId}`
+    const iLoqMappingKey = `efecte-iLoq-synchronization-integration:mapped:person:iLoq:${customerCode}:${personId}`
     await setRedisKey(iLoqMappingKey, JSON.stringify(mapping))
 
     // 2. Write Efecte→iLoq mapping to Redis
     // For regular persons: key is entityId, value is iLoq personId
     // For outsiders: key is createIdentifier(email, name), value is iLoq personId
     if (isPersonMapping(mapping)) {
-      const efecteMappingKey = `efecte-iLoq-synchronization-integration:mapped:person:efecte:${mapping.entityId}`
+      const efecteMappingKey = `efecte-iLoq-synchronization-integration:mapped:person:efecte:${customerCode}:${mapping.entityId}`
       await setRedisKey(efecteMappingKey, personId)
     } else {
       const outsiderIdentifier = createOutsiderIdentifier(mapping.outsiderEmail, mapping.outsiderName)
-      const efecteMappingKey = `efecte-iLoq-synchronization-integration:mapped:person:efecte:${outsiderIdentifier}`
+      const efecteMappingKey = `efecte-iLoq-synchronization-integration:mapped:person:efecte:${customerCode}:${outsiderIdentifier}`
       await setRedisKey(efecteMappingKey, personId)
     }
 
     // 3. Delete audit record
-    const auditKey = `efecte-iLoq-synchronization-integration:auditRecord:iLoq:key:${realEstateId}:${keyId}`
     await deleteRedisKey(auditKey)
 
     // 4. Delete Efecte persons key (if exists - ignore errors)
@@ -96,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
 
     logger.info(
-      { personId, realEstateId, keyId, mapping },
+      { personId, realEstateId, keyId, customerCode, mapping },
       'Person mapping saved successfully'
     )
 
