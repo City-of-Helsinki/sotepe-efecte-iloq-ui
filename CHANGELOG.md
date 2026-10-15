@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.0.5...sotepe-efecte-iloq-ui-v1.1.0) (2026-10-15)
+
+
+### Features
+
+* Add user guidance, failure categories and a Finnish/English language switcher ([#15](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/issues/15)) ([3cae6bc](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/commit/3cae6bcaaf50896d841dc283575a33d5ea1da67c))
+
 ## [1.0.5](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.0.4...sotepe-efecte-iloq-ui-v1.0.5) (2026-10-15)
 
 
