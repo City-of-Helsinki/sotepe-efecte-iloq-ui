@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useEfectePersons } from '@/hooks/useEfectePersons'
-import { useSavePersonMapping } from '@/hooks/useSavePersonMapping'
+import {
+  useSavePersonMapping,
+  getSaveMappingErrorMessage,
+} from '@/hooks/useSavePersonMapping'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import type { AuditRecord, EfectePerson } from '@/types'
 import { ConfirmationDialog } from '../ConfirmationDialog'
+import { useI18n } from '@/components/providers/language-provider'
 
 interface MatchingPersonsProps {
   personId: string
@@ -30,6 +33,7 @@ export function MatchingPersons({
   keyData,
   onSuccess,
 }: MatchingPersonsProps) {
+  const { t } = useI18n()
   const { data: persons, isLoading, error } = useEfectePersons(personId)
   const [selectedPerson, setSelectedPerson] = useState<EfectePerson | null>(
     null
@@ -38,17 +42,11 @@ export function MatchingPersons({
 
   const { mutate: saveMapping, isPending } = useSavePersonMapping({
     onSuccess: () => {
-      toast.success(
-        'Person successfully matched. The key will be synchronized in the next integration run.',
-        { duration: 5000 }
-      )
+      toast.success(t.toasts.matchSaved, { duration: 5000 })
       onSuccess()
     },
     onError: error => {
-      toast.error(
-        `Failed to save the mapping. ${error.message}. Please try again or contact support if the problem persists.`,
-        { duration: 5000 }
-      )
+      toast.error(getSaveMappingErrorMessage(error, t), { duration: 5000 })
     },
   })
 
@@ -74,10 +72,10 @@ export function MatchingPersons({
   if (isLoading) {
     return (
       <div className="space-y-2">
-        <h3 className="font-bold text-lg">Matching Persons Found in Efecte</h3>
+        <h3 className="font-bold text-lg">{t.matchingPersons.title}</h3>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-primary" />
-          <span>Loading...</span>
+          <span>{t.common.loading}</span>
         </div>
       </div>
     )
@@ -86,11 +84,9 @@ export function MatchingPersons({
   if (error || !persons || persons.length === 0) {
     return (
       <div className="space-y-2">
-        <h3 className="font-bold text-lg">Matching Persons Found in Efecte</h3>
+        <h3 className="font-bold text-lg">{t.matchingPersons.title}</h3>
         <Alert variant="destructive">
-          <AlertDescription>
-            Unable to load matching persons from Efecte
-          </AlertDescription>
+          <AlertDescription>{t.matchingPersons.loadFailed}</AlertDescription>
         </Alert>
       </div>
     )
@@ -100,11 +96,9 @@ export function MatchingPersons({
     <>
       <div className="space-y-4">
         <div>
-          <h3 className="font-bold text-lg">
-            Matching Persons Found in Efecte
-          </h3>
+          <h3 className="font-bold text-lg">{t.matchingPersons.title}</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            (These matches were found based on first name and last name)
+            {t.matchingPersons.subtitle}
           </p>
         </div>
 
@@ -118,46 +112,68 @@ export function MatchingPersons({
             return (
               <Card key={person.id} className="p-4">
                 <div className="space-y-2">
-                  <div className="font-semibold">Person {index + 1}:</div>
+                  <div className="font-semibold">
+                    {t.matchingPersons.person(index + 1)}
+                  </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                     <div>
-                      <span className="font-medium">Full Name:</span>{' '}
+                      <span className="font-medium">
+                        {t.matchingPersons.fullName}
+                      </span>{' '}
                       {getEfecteAttribute(person, 'full_name')}
                     </div>
                     <div>
-                      <span className="font-medium">Email:</span>{' '}
+                      <span className="font-medium">
+                        {t.matchingPersons.email}
+                      </span>{' '}
                       {getEfecteAttribute(person, 'email')}
                     </div>
                     <div>
-                      <span className="font-medium">Mobile:</span>{' '}
+                      <span className="font-medium">
+                        {t.matchingPersons.mobile}
+                      </span>{' '}
                       {getEfecteAttribute(person, 'mobile')}
                     </div>
                     <div>
-                      <span className="font-medium">Phone:</span>{' '}
+                      <span className="font-medium">
+                        {t.matchingPersons.phone}
+                      </span>{' '}
                       {getEfecteAttribute(person, 'phone')}
                     </div>
                     <div>
-                      <span className="font-medium">Title:</span>{' '}
+                      <span className="font-medium">
+                        {t.matchingPersons.jobTitle}
+                      </span>{' '}
                       {getEfecteAttribute(person, 'title')}
                     </div>
                     <div>
-                      <span className="font-medium">Department:</span>{' '}
+                      <span className="font-medium">
+                        {t.matchingPersons.department}
+                      </span>{' '}
                       {getEfecteAttribute(person, 'department')}
                     </div>
                     <div>
-                      <span className="font-medium">Office:</span>{' '}
+                      <span className="font-medium">
+                        {t.matchingPersons.office}
+                      </span>{' '}
                       {getEfecteAttribute(person, 'office')}
                     </div>
                     <div>
-                      <span className="font-medium">Efecte ID:</span>{' '}
+                      <span className="font-medium">
+                        {t.matchingPersons.efecteId}
+                      </span>{' '}
                       {getEfecteAttribute(person, 'efecte_id')}
                     </div>
                     <div>
-                      <span className="font-medium">Entity ID:</span>{' '}
+                      <span className="font-medium">
+                        {t.matchingPersons.entityId}
+                      </span>{' '}
                       {getEfecteAttribute(person, 'person_entityid')}
                     </div>
                     <div>
-                      <span className="font-medium">Status:</span>{' '}
+                      <span className="font-medium">
+                        {t.matchingPersons.status}
+                      </span>{' '}
                       {getEfecteAttribute(person, 'status')}
                     </div>
                   </div>
@@ -165,7 +181,7 @@ export function MatchingPersons({
                   {streetAddresses.length > 0 && (
                     <div>
                       <span className="font-medium text-sm">
-                        Street Addresses:
+                        {t.matchingPersons.streetAddresses}
                       </span>
                       <ul className="list-disc list-inside ml-4 text-sm">
                         {streetAddresses.map((addr, i) => (
@@ -180,7 +196,7 @@ export function MatchingPersons({
                     disabled={isPending}
                     className="w-full mt-2"
                   >
-                    Select
+                    {t.matchingPersons.select}
                   </Button>
                 </div>
               </Card>
@@ -191,8 +207,11 @@ export function MatchingPersons({
 
       {showConfirmation && selectedPerson && (
         <ConfirmationDialog
-          title="Confirm Person Matching"
-          message={`Are you sure you want to match this person?\n\nEntity ID: ${getEfecteAttribute(selectedPerson, 'person_entityid')}\nEfecte ID: ${getEfecteAttribute(selectedPerson, 'efecte_id')}`}
+          title={t.matchingPersons.confirmTitle}
+          message={t.matchingPersons.confirmMessage(
+            getEfecteAttribute(selectedPerson, 'person_entityid'),
+            getEfecteAttribute(selectedPerson, 'efecte_id')
+          )}
           onConfirm={handleConfirm}
           onCancel={() => {
             setShowConfirmation(false)

@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { KeyDetails } from '@/components/non-synced-keys/modal-sections/KeyDetails'
 import type { AuditRecord } from '@/types'
+import { getDictionary } from '@/lib/i18n'
+
+const t = getDictionary('fi')
 
 describe('KeyDetails', () => {
   const mockKeyData: AuditRecord = {
@@ -48,7 +51,7 @@ describe('KeyDetails', () => {
   it('renders key details correctly', () => {
     render(<KeyDetails keyData={mockKeyData} />)
 
-    expect(screen.getByText('Key Details')).toBeInTheDocument()
+    expect(screen.getByText(t.keyDetails.title)).toBeInTheDocument()
     expect(screen.getByText('Main Door Key')).toBeInTheDocument()
     expect(screen.getByText('Building A')).toBeInTheDocument()
   })
@@ -56,9 +59,9 @@ describe('KeyDetails', () => {
   it('displays key state with description', () => {
     render(<KeyDetails keyData={mockKeyData} />)
 
-    expect(screen.getByText(/State:/)).toBeInTheDocument()
+    expect(screen.getByText(t.keyDetails.state)).toBeInTheDocument()
     expect(
-      screen.getByText(/Key is handed over to a person/)
+      screen.getByText(new RegExp(t.keyDetails.states[1]))
     ).toBeInTheDocument()
   })
 
@@ -68,7 +71,11 @@ describe('KeyDetails', () => {
       iloqKey: {
         ...mockKeyData.iloqKey,
         securityAccesses: [
-          { Name: 'Main Entrance', RealEstate_ID: 're-1', SecurityAccess_ID: '1' },
+          {
+            Name: 'Main Entrance',
+            RealEstate_ID: 're-1',
+            SecurityAccess_ID: '1',
+          },
           { Name: 'Back Door', RealEstate_ID: 're-1', SecurityAccess_ID: '2' },
         ],
       },
@@ -76,7 +83,7 @@ describe('KeyDetails', () => {
 
     render(<KeyDetails keyData={keyDataWithAccess} />)
 
-    expect(screen.getByText('Security Accesses:')).toBeInTheDocument()
+    expect(screen.getByText(t.keyDetails.securityAccesses)).toBeInTheDocument()
     expect(screen.getByText('Main Entrance')).toBeInTheDocument()
     expect(screen.getByText('Back Door')).toBeInTheDocument()
   })
@@ -84,7 +91,9 @@ describe('KeyDetails', () => {
   it('does not show security accesses when empty', () => {
     render(<KeyDetails keyData={mockKeyData} />)
 
-    expect(screen.queryByText('Security Accesses:')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(t.keyDetails.securityAccesses)
+    ).not.toBeInTheDocument()
   })
 
   it('displays dash when description is missing', () => {
@@ -104,20 +113,10 @@ describe('KeyDetails', () => {
   })
 
   it('handles all key states correctly', () => {
-    const states = [
-      { state: 0, description: 'Key is in planning state' },
-      { state: 1, description: 'Key is handed over to a person' },
-      {
-        state: 2,
-        description: "Key is hidden and shouldn't be displayed by default",
-      },
-      {
-        state: 3,
-        description:
-          'Key is deleted but remains in the system for logging purposes',
-      },
-      { state: 4, description: 'Key is returned' },
-    ]
+    const states = [0, 1, 2, 3, 4].map(state => ({
+      state,
+      description: t.keyDetails.states[state],
+    }))
 
     states.forEach(({ state, description }) => {
       const keyDataWithState: AuditRecord = {
@@ -145,6 +144,8 @@ describe('KeyDetails', () => {
 
     render(<KeyDetails keyData={keyDataInvalidState} />)
 
-    expect(screen.getByText(/Unknown state/)).toBeInTheDocument()
+    expect(
+      screen.getByText(new RegExp(t.keyDetails.unknownState))
+    ).toBeInTheDocument()
   })
 })

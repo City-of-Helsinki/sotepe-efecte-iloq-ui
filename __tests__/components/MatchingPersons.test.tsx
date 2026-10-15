@@ -10,7 +10,8 @@ vi.mock('@/hooks/useEfectePersons', () => ({
   useEfectePersons: vi.fn(),
 }))
 
-vi.mock('@/hooks/useSavePersonMapping', () => ({
+vi.mock('@/hooks/useSavePersonMapping', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/hooks/useSavePersonMapping')>()),
   useSavePersonMapping: vi.fn(),
 }))
 
@@ -23,6 +24,9 @@ vi.mock('sonner', () => ({
 
 import { useEfectePersons } from '@/hooks/useEfectePersons'
 import { useSavePersonMapping } from '@/hooks/useSavePersonMapping'
+import { getDictionary } from '@/lib/i18n'
+
+const t = getDictionary('fi')
 
 describe('MatchingPersons', () => {
   let queryClient: QueryClient
@@ -273,12 +277,14 @@ describe('MatchingPersons', () => {
 
     // Click select button for first person
     const selectButtons = await screen.findAllByRole('button', {
-      name: 'Select',
+      name: t.matchingPersons.select,
     })
     await user.click(selectButtons[0])
 
     // Confirm in the dialog
-    const confirmButton = await screen.findByRole('button', { name: 'Confirm' })
+    const confirmButton = await screen.findByRole('button', {
+      name: t.common.confirm,
+    })
     await user.click(confirmButton)
 
     // Verify the mutation was called with correct data
@@ -313,7 +319,7 @@ describe('MatchingPersons', () => {
 
     // Click select button for first person
     const selectButtons = await screen.findAllByRole('button', {
-      name: 'Select',
+      name: t.matchingPersons.select,
     })
     await user.click(selectButtons[0])
 
@@ -389,7 +395,7 @@ describe('MatchingPersons', () => {
       { wrapper }
     )
 
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText(t.common.loading)).toBeInTheDocument()
   })
 
   it('shows error state when no persons found', () => {
@@ -408,8 +414,6 @@ describe('MatchingPersons', () => {
       { wrapper }
     )
 
-    expect(
-      screen.getByText('Unable to load matching persons from Efecte')
-    ).toBeInTheDocument()
+    expect(screen.getByText(t.matchingPersons.loadFailed)).toBeInTheDocument()
   })
 })

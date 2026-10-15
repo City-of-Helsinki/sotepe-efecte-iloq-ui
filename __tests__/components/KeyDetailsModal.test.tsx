@@ -3,6 +3,9 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { KeyDetailsModal } from '@/components/non-synced-keys/KeyDetailsModal'
 import type { AuditRecord } from '@/types'
+import { getDictionary } from '@/lib/i18n'
+
+const t = getDictionary('fi')
 
 // Mock the child components
 vi.mock('@/components/non-synced-keys/modal-sections/SyncInformation', () => ({
@@ -99,7 +102,7 @@ describe('KeyDetailsModal', () => {
       { wrapper }
     )
 
-    expect(screen.getByText('Key Details')).toBeInTheDocument()
+    expect(screen.getByText(t.keyDetailsModal.title)).toBeInTheDocument()
   })
 
   it('prevents closing when clicking outside the modal', () => {
@@ -139,7 +142,7 @@ describe('KeyDetailsModal', () => {
     )
 
     // Find and click the close button (X)
-    const closeButton = screen.getByRole('button', { name: /close/i })
+    const closeButton = screen.getByRole('button', { name: t.common.close })
     fireEvent.click(closeButton)
 
     expect(mockOnClose).toHaveBeenCalledTimes(1)
@@ -206,5 +209,21 @@ describe('KeyDetailsModal', () => {
   it('shows unsaved changes warning when form is dirty', async () => {
     // This would require more complex testing with form interaction
     // Skipping for now as it requires mocking the ManualEntryForms behavior
+  })
+
+  it('explains the failure category before the actions', () => {
+    render(
+      <KeyDetailsModal
+        keyData={mockKeyData}
+        failureCategory="outsider_without_key_card"
+        onClose={mockOnClose}
+        onSuccess={mockOnSuccess}
+      />,
+      { wrapper }
+    )
+
+    expect(
+      screen.getByText(t.categories.outsider_without_key_card.description)
+    ).toBeInTheDocument()
   })
 })

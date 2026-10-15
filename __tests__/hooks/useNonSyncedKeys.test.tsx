@@ -4,6 +4,41 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useNonSyncedKeys } from '@/hooks/useNonSyncedKeys'
 import type { ReactNode } from 'react'
 
+const MULTIPLE_MATCHING_MESSAGE =
+  "Multiple matching key holders found for iLOQ person 'John Doe' at Efecte"
+const NO_MATCHING_MESSAGE =
+  'Unable to create a new key card in Efecte. No matching key holder was found for the specified iLOQ person (p2).'
+const TECHNICAL_MESSAGE =
+  'Creating Efecte key failed. Server response: <error>invalid</error>'
+
+function auditRecordEntry(
+  id: string,
+  message: string,
+  realEstateId: string,
+  realEstateName: string
+) {
+  return {
+    key: `efecte-iLoq-synchronization-integration:auditRecord:iLoq:key:${realEstateId}:k${id}`,
+    value: JSON.stringify({
+      id,
+      timestamp: '2025-11-02T14:02:00.000Z',
+      from: 'ILOQ',
+      to: 'EFECTE',
+      message,
+      iLoqId: `k${id}`,
+      iloqKey: {
+        fnKeyId: `k${id}`,
+        description: `Key ${id}`,
+        realEstateId,
+        realEstateName,
+        state: 1,
+        person: { Person_ID: `p${id}`, FirstName: 'John', LastName: 'Doe' },
+        securityAccesses: [],
+      },
+    }),
+  }
+}
+
 // Mock fetch
 globalThis.fetch = vi.fn()
 
@@ -33,7 +68,7 @@ describe('useNonSyncedKeys', () => {
             timestamp: '2025-11-02T14:02:00.000Z',
             from: 'ILOQ',
             to: 'EFECTE',
-            message: 'Multiple matching persons',
+            message: MULTIPLE_MATCHING_MESSAGE,
             iLoqId: 'k1',
             iloqKey: {
               fnKeyId: 'k1',
@@ -78,7 +113,10 @@ describe('useNonSyncedKeys', () => {
       'Building A'
     )
     expect(result.current.data?.realEstates[0].totalKeys).toBe(1)
-    expect(result.current.data?.lastIntegrationRun).toContain('November')
+    // Parsed as a local date, it is formatted for the selected language when displayed
+    expect(result.current.data?.lastIntegrationRun).toEqual(
+      new Date(2025, 10, 2, 14, 2, 11)
+    )
   })
 
   it('handles empty keys array', async () => {
@@ -124,7 +162,7 @@ describe('useNonSyncedKeys', () => {
             timestamp: '2025-11-02T14:02:00.000Z',
             from: 'ILOQ',
             to: 'EFECTE',
-            message: 'Multiple matching persons',
+            message: MULTIPLE_MATCHING_MESSAGE,
             iLoqId: 'k1',
             iloqKey: {
               fnKeyId: 'k1',
@@ -144,7 +182,7 @@ describe('useNonSyncedKeys', () => {
             timestamp: '2025-11-02T14:02:00.000Z',
             from: 'ILOQ',
             to: 'EFECTE',
-            message: 'No matching persons',
+            message: NO_MATCHING_MESSAGE,
             iLoqId: 'k2',
             iloqKey: {
               fnKeyId: 'k2',
@@ -168,7 +206,7 @@ describe('useNonSyncedKeys', () => {
             timestamp: '2025-11-02T14:02:00.000Z',
             from: 'ILOQ',
             to: 'EFECTE',
-            message: 'Multiple matching persons',
+            message: MULTIPLE_MATCHING_MESSAGE,
             iLoqId: 'k3',
             iloqKey: {
               fnKeyId: 'k3',
@@ -216,5 +254,40 @@ describe('useNonSyncedKeys', () => {
       'Building B'
     )
     expect(result.current.data?.realEstates[1].totalKeys).toBe(1)
+  })
+
+  it('leaves out technical failures, also from the real estate key counts', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          keys: [
+            auditRecordEntry(
+              '1',
+              MULTIPLE_MATCHING_MESSAGE,
+              're1',
+              'Building A'
+            ),
+            auditRecordEntry('2', TECHNICAL_MESSAGE, 're1', 'Building A'),
+            auditRecordEntry('3', TECHNICAL_MESSAGE, 're2', 'Building B'),
+          ],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ timestamp: null }),
+      } as Response)
+
+    const { result } = renderHook(() => useNonSyncedKeys(), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    // Building B has only a technical failure, so it is not shown at all
+    expect(result.current.data?.realEstates).toHaveLength(1)
+    expect(result.current.data?.realEstates[0].realEstateName).toBe(
+      'Building A'
+    )
+    expect(result.current.data?.realEstates[0].totalKeys).toBe(1)
+    expect(result.current.data?.realEstates[0].keys[0].id).toBe('1')
   })
 })

@@ -3,9 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/components/providers/language-provider'
+import { LanguageSwitcher } from '@/components/language/LanguageSwitcher'
 
 export function Navbar() {
   const pathname = usePathname()
+  const { t } = useI18n()
 
   return (
     <nav className="border-b bg-background">
@@ -16,7 +19,7 @@ export function Navbar() {
               href="/dashboard"
               className="text-xl font-bold text-foreground"
             >
-              Efecte-iLOQ Integration
+              {t.common.appName}
             </Link>
             <div className="flex gap-4">
               <Link
@@ -28,7 +31,7 @@ export function Navbar() {
                     : 'text-muted-foreground'
                 )}
               >
-                Dashboard
+                {t.nav.dashboard}
               </Link>
               <Link
                 href="/non-synced-keys"
@@ -39,10 +42,11 @@ export function Navbar() {
                     : 'text-muted-foreground'
                 )}
               >
-                Non-Synced Keys
+                {t.nav.nonSyncedKeys}
               </Link>
             </div>
           </div>
+          <LanguageSwitcher />
         </div>
       </div>
     </nav>

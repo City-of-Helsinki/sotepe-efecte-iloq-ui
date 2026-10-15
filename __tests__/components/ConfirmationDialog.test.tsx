@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConfirmationDialog } from '@/components/non-synced-keys/ConfirmationDialog'
+import { getDictionary } from '@/lib/i18n'
+
+const t = getDictionary('fi')
 
 describe('ConfirmationDialog', () => {
   const mockOnConfirm = vi.fn()
@@ -30,15 +33,19 @@ describe('ConfirmationDialog', () => {
   it('displays Cancel and Confirm buttons', () => {
     render(<ConfirmationDialog {...defaultProps} />)
 
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: t.common.cancel })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: t.common.confirm })
+    ).toBeInTheDocument()
   })
 
   it('calls onCancel when Cancel button is clicked', async () => {
     const user = userEvent.setup()
     render(<ConfirmationDialog {...defaultProps} />)
 
-    const cancelButton = screen.getByRole('button', { name: 'Cancel' })
+    const cancelButton = screen.getByRole('button', { name: t.common.cancel })
     await user.click(cancelButton)
 
     expect(mockOnCancel).toHaveBeenCalledTimes(1)
@@ -49,7 +56,7 @@ describe('ConfirmationDialog', () => {
     const user = userEvent.setup()
     render(<ConfirmationDialog {...defaultProps} />)
 
-    const confirmButton = screen.getByRole('button', { name: 'Confirm' })
+    const confirmButton = screen.getByRole('button', { name: t.common.confirm })
     await user.click(confirmButton)
 
     expect(mockOnConfirm).toHaveBeenCalledTimes(1)
@@ -59,8 +66,10 @@ describe('ConfirmationDialog', () => {
   it('disables buttons when isLoading is true', () => {
     render(<ConfirmationDialog {...defaultProps} isLoading={true} />)
 
-    const cancelButton = screen.getByRole('button', { name: 'Cancel' })
-    const confirmButton = screen.getByRole('button', { name: 'Confirming...' })
+    const cancelButton = screen.getByRole('button', { name: t.common.cancel })
+    const confirmButton = screen.getByRole('button', {
+      name: t.common.confirming,
+    })
 
     expect(cancelButton).toBeDisabled()
     expect(confirmButton).toBeDisabled()
@@ -69,15 +78,15 @@ describe('ConfirmationDialog', () => {
   it('shows "Confirming..." text when loading', () => {
     render(<ConfirmationDialog {...defaultProps} isLoading={true} />)
 
-    expect(screen.getByText('Confirming...')).toBeInTheDocument()
-    expect(screen.queryByText('Confirm')).not.toBeInTheDocument()
+    expect(screen.getByText(t.common.confirming)).toBeInTheDocument()
+    expect(screen.queryByText(t.common.confirm)).not.toBeInTheDocument()
   })
 
   it('buttons are enabled when isLoading is false', () => {
     render(<ConfirmationDialog {...defaultProps} isLoading={false} />)
 
-    const cancelButton = screen.getByRole('button', { name: 'Cancel' })
-    const confirmButton = screen.getByRole('button', { name: 'Confirm' })
+    const cancelButton = screen.getByRole('button', { name: t.common.cancel })
+    const confirmButton = screen.getByRole('button', { name: t.common.confirm })
 
     expect(cancelButton).not.toBeDisabled()
     expect(confirmButton).not.toBeDisabled()

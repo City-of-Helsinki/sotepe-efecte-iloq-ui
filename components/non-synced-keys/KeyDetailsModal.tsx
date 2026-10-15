@@ -13,6 +13,8 @@ import { KeyDetails } from './modal-sections/KeyDetails'
 import { PersonInformation } from './modal-sections/PersonInformation'
 import { MatchingPersons } from './modal-sections/MatchingPersons'
 import { ManualEntryForms } from './modal-sections/ManualEntryForms'
+import { CategoryGuidance } from './CategoryGuidance'
+import { useI18n } from '@/components/providers/language-provider'
 
 interface KeyDetailsModalProps {
   keyData: AuditRecord
@@ -27,6 +29,7 @@ export function KeyDetailsModal({
   onClose,
   onSuccess,
 }: KeyDetailsModalProps) {
+  const { t } = useI18n()
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showCloseWarning, setShowCloseWarning] = useState(false)
 
@@ -53,17 +56,18 @@ export function KeyDetailsModal({
       <Dialog open={true} onOpenChange={handleClose}>
         <DialogContent
           className="max-w-[800px] max-h-[80vh] overflow-y-auto"
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={e => e.preventDefault()}
+          onInteractOutside={e => e.preventDefault()}
         >
           <DialogHeader>
-            <DialogTitle>Key Details</DialogTitle>
+            <DialogTitle>{t.keyDetailsModal.title}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 mt-4">
             <SyncInformation keyData={keyData} />
             <KeyDetails keyData={keyData} />
             <PersonInformation person={keyData.iloqKey.person} />
+            <CategoryGuidance category={failureCategory} />
 
             {failureCategory === 'multiple_matching' && (
               <MatchingPersons
@@ -88,23 +92,23 @@ export function KeyDetailsModal({
         <Dialog open={true} onOpenChange={() => setShowCloseWarning(false)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Unsaved Changes</DialogTitle>
+              <DialogTitle>{t.keyDetailsModal.unsavedTitle}</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
-              You have unsaved changes. Are you sure you want to close?
+              {t.keyDetailsModal.unsavedMessage}
             </p>
             <div className="flex justify-end gap-2 mt-4">
               <button
                 onClick={() => setShowCloseWarning(false)}
                 className="px-4 py-2 text-sm border rounded hover:bg-accent"
               >
-                Cancel
+                {t.common.cancel}
               </button>
               <button
                 onClick={handleConfirmClose}
                 className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
               >
-                Confirm
+                {t.common.confirm}
               </button>
             </div>
           </DialogContent>
