@@ -261,6 +261,21 @@ const efectePersonsByILoqPerson: Record<string, EfectePerson[]> = {
   ],
 }
 
+// Outsider registrations (person mappings), shown in the key details of the outsider category
+const outsiderMappings: Record<
+  string,
+  { outsiderName: string; outsiderEmail: string }
+> = {
+  '8b20eb5c-3ab2-427a-ba1b-72b0aa000006': {
+    outsiderName: 'Olli Ulkopuolinen',
+    outsiderEmail: 'Aulapalvelut.KampinPerhekeskus@hel.fi',
+  },
+  '8b20eb5c-3ab2-427a-ba1b-72b0aa000008': {
+    outsiderName: 'Sanna Siivooja',
+    outsiderEmail: 'sanna@siivous.fi',
+  },
+}
+
 const auditRecords: AuditRecord[] = [
   // Kampin perhekeskus: all three categories and one hidden technical failure
   auditRecord(
@@ -376,6 +391,11 @@ async function seedRedis() {
     const deletedRecords = await deleteByPattern(`${PREFIX}:auditRecord:iLoq:*`)
     console.log(`✓ Cleared ${deletedRecords} existing audit records`)
 
+    const deletedMappings = await deleteByPattern(
+      `${PREFIX}:mapped:person:*:${CUSTOMER_CODE}:*`
+    )
+    console.log(`✓ Cleared ${deletedMappings} existing person mappings`)
+
     for (const record of auditRecords) {
       const key = `${PREFIX}:auditRecord:iLoq:key:${record.iloqKey.realEstateId}:${record.iloqKey.fnKeyId}`
       await redis.set(
@@ -399,6 +419,16 @@ async function seedRedis() {
     }
     console.log(
       `✓ Created Efecte person lists for ${Object.keys(efectePersonsByILoqPerson).length} multiple matching cases`
+    )
+
+    for (const [personId, mapping] of Object.entries(outsiderMappings)) {
+      await redis.set(
+        `${PREFIX}:mapped:person:iLoq:${CUSTOMER_CODE}:${personId}`,
+        JSON.stringify(mapping)
+      )
+    }
+    console.log(
+      `✓ Created outsider registrations for ${Object.keys(outsiderMappings).length} persons`
     )
 
     // Same format as the integration: "yyyy:MM:dd HH:mm:ss"

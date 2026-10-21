@@ -98,9 +98,18 @@ const fi = {
     outsider_without_key_card: {
       title: 'Ulkopuolinen ilman Efecten avainkorttia',
       description:
-        'Henkilö on merkitty ulkopuoliseksi, mutta Efectestä ei löytynyt avaimelle vastaavaa ulkopuolisen henkilön avainkorttia. Integraatio ei luo Efecteen avainkortteja ulkopuolisille henkilöille, joten avain synkronoituu vasta, kun Efectessä on vastaava avainkortti. Luo avainkortti Efecteen tai poista avain iLOQista.',
+        'Henkilö on merkitty ulkopuoliseksi, mutta Efectestä ei löytynyt avaimelle vastaavaa ulkopuolisen henkilön avainkorttia. Integraatio ei luo Efecteen avainkortteja ulkopuolisille henkilöille, joten avain synkronoituu vasta, kun Efectessä on vastaava avainkortti. Luo avainkortti Efecteen, korjaa ulkopuolisen tiedot vastaamaan avainkorttia tai poista avain iLOQista.',
       options: [] as string[],
     },
+  },
+  outsiderRegistration: {
+    title: 'Rekisteröity ulkopuoliseksi tiedoilla',
+    description:
+      'Integraatio etsii Efectestä ulkopuolisen avainkorttia näillä tiedoilla.',
+    name: 'Nimi:',
+    email: 'Sähköposti:',
+    loadFailed: 'Rekisteröinnin tietojen lataus epäonnistui.',
+    notFound: 'Rekisteröinnin tietoja ei löytynyt.',
   },
   keyDetailsModal: {
     title: 'Avaimen tiedot',
@@ -177,6 +186,11 @@ const fi = {
   forms: {
     matchOption: 'Kohdista Efecten henkilöön',
     outsiderOption: 'Rekisteröi ulkopuoliseksi',
+    correctOutsiderOption: 'Korjaa ulkopuolisen tiedot',
+    correctOutsiderNote:
+      'Korjaa nimi ja sähköposti täsmälleen samoiksi kuin ne ovat Efecten avainkortilla. Integraatio yrittää yhdistää avaimen korttiin seuraavassa integraatioajossa.',
+    correctOutsiderSubmit: 'Tallenna korjatut tiedot',
+    correctiveMatchOption: 'Kohdista Efecten henkilöön (korjaava toimenpide)',
     correctiveNote:
       'Korjaava toimenpide: kohdista henkilö Efecten henkilöön vain, jos hänet on aiemmin merkitty virheellisesti ulkopuoliseksi.',
     matchNote:
@@ -315,9 +329,18 @@ const en: Dictionary = {
     outsider_without_key_card: {
       title: 'Outsider without an Efecte key card',
       description:
-        'The person has been registered as an outsider, but no matching outsider key card was found in Efecte for the key. The integration does not create Efecte key cards for outsiders, so the key is synchronized only once a matching key card exists in Efecte. Create the key card in Efecte or remove the key in iLOQ.',
+        'The person has been registered as an outsider, but no matching outsider key card was found in Efecte for the key. The integration does not create Efecte key cards for outsiders, so the key is synchronized only once a matching key card exists in Efecte. Create the key card in Efecte, correct the outsider details to match the key card, or remove the key in iLOQ.',
       options: [],
     },
+  },
+  outsiderRegistration: {
+    title: 'Registered as an outsider with',
+    description:
+      'The integration looks for an outsider key card in Efecte with these details.',
+    name: 'Name:',
+    email: 'Email:',
+    loadFailed: 'Loading the registration details failed.',
+    notFound: 'The registration details were not found.',
   },
   keyDetailsModal: {
     title: 'Key details',
@@ -393,6 +416,11 @@ const en: Dictionary = {
   forms: {
     matchOption: 'Match with Efecte person',
     outsiderOption: 'Register as outsider',
+    correctOutsiderOption: 'Correct the outsider details',
+    correctOutsiderNote:
+      'Correct the name and email to be exactly as they are on the Efecte key card. The integration tries to link the key to the card in the next integration run.',
+    correctOutsiderSubmit: 'Save the corrected details',
+    correctiveMatchOption: 'Match with Efecte person (corrective action)',
     correctiveNote:
       'Corrective action: match the person with an Efecte person only if the person was earlier registered as an outsider by mistake.',
     matchNote:

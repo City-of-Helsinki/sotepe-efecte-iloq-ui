@@ -15,6 +15,14 @@ interface KeyListViewProps {
   realEstate: RealEstateGroup
 }
 
+// The person name is left out when the audit record has no person details
+function formatKeyLabel(key: AuditRecord): string {
+  const { FirstName, LastName } = key.iloqKey.person
+  const name = [FirstName, LastName].filter(Boolean).join(' ').trim()
+
+  return name ? `${key.iloqKey.description} (${name})` : key.iloqKey.description
+}
+
 export function KeyListView({ realEstate }: KeyListViewProps) {
   const { t } = useI18n()
   const [expandedCategories, setExpandedCategories] = useState<
@@ -116,11 +124,7 @@ export function KeyListView({ realEstate }: KeyListViewProps) {
                         onClick={() => handleKeyClick(key, category)}
                         className="w-full p-3 text-left hover:bg-accent transition-colors"
                       >
-                        <span className="text-sm">
-                          {key.iloqKey.description} (
-                          {key.iloqKey.person.FirstName}{' '}
-                          {key.iloqKey.person.LastName})
-                        </span>
+                        <span className="text-sm">{formatKeyLabel(key)}</span>
                       </button>
                     ))}
                   </div>

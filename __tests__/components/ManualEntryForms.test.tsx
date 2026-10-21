@@ -82,14 +82,81 @@ describe('ManualEntryForms', () => {
     )
   })
 
-  it('offers only the corrective matching for an outsider without a key card', () => {
+  it('prefills the outsider details for correcting them', async () => {
+    const user = userEvent.setup()
+    render(
+      <ManualEntryForms
+        keyData={keyData}
+        failureCategory="outsider_without_key_card"
+        onSuccess={vi.fn()}
+        onFormChange={vi.fn()}
+        initialOutsider={{
+          outsiderName: 'Umid Usan',
+          outsiderEmail: 'aulapalvelut@hel.fi',
+        }}
+      />
+    )
+
+    expect(screen.getByLabelText(t.forms.correctOutsiderOption)).toBeChecked()
+    expect(screen.getByText(t.forms.correctOutsiderNote)).toBeInTheDocument()
+    expect(screen.getByLabelText(t.forms.outsiderName)).toHaveValue('Umid Usan')
+    expect(screen.getByLabelText(t.forms.outsiderEmail)).toHaveValue(
+      'aulapalvelut@hel.fi'
+    )
+
+    // Unchanged details cannot be saved
+    const submit = screen.getByRole('button', {
+      name: t.forms.correctOutsiderSubmit,
+    })
+    expect(submit).toBeDisabled()
+
+    await user.clear(screen.getByLabelText(t.forms.outsiderEmail))
+    await user.type(
+      screen.getByLabelText(t.forms.outsiderEmail),
+      'umid@kavi.fi'
+    )
+    await user.click(submit)
+    await user.click(screen.getByRole('button', { name: t.common.confirm }))
+
+    expect(mutate).toHaveBeenCalledWith({
+      personId: 'person-1',
+      realEstateId: 'building-a',
+      keyId: 'key-1',
+      mapping: { outsiderName: 'Umid Usan', outsiderEmail: 'umid@kavi.fi' },
+    })
+  })
+
+  it('offers matching with an Efecte person as a corrective action for an outsider', async () => {
+    const user = userEvent.setup()
     renderForms('outsider_without_key_card')
 
-    expect(screen.getByText(t.forms.correctiveNote)).toBeInTheDocument()
     expect(
       screen.queryByLabelText(t.forms.outsiderOption)
     ).not.toBeInTheDocument()
+    expect(screen.queryByText(t.forms.correctiveNote)).not.toBeInTheDocument()
+
+    await user.click(screen.getByLabelText(t.forms.correctiveMatchOption))
+
+    expect(screen.getByText(t.forms.correctiveNote)).toBeInTheDocument()
     expect(screen.getByLabelText(t.forms.entityId)).toBeInTheDocument()
+  })
+
+  it('does not report unsaved changes for the prefilled outsider details', () => {
+    const onFormChange = vi.fn()
+    render(
+      <ManualEntryForms
+        keyData={keyData}
+        failureCategory="outsider_without_key_card"
+        onSuccess={vi.fn()}
+        onFormChange={onFormChange}
+        initialOutsider={{
+          outsiderName: 'Umid Usan',
+          outsiderEmail: 'aulapalvelut@hel.fi',
+        }}
+      />
+    )
+
+    expect(onFormChange).toHaveBeenLastCalledWith(false)
   })
 
   it('reminds that both ids must be from the same person card before saving', async () => {
