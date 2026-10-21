@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.1.0...sotepe-efecte-iloq-ui-v1.2.0) (2026-10-21)
+
+
+### Features
+
+* Show and correct the details an outsider is registered with ([#17](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/issues/17)) ([0e32dd4](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/commit/0e32dd4f274c840645c4b371b771248cc03f1d5a))
+
 ## [1.1.0](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.0.5...sotepe-efecte-iloq-ui-v1.1.0) (2026-10-15)
 
 
