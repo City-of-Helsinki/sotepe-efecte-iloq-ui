@@ -23,6 +23,55 @@ function errorResponse(
   return NextResponse.json({ error, code }, { status })
 }
 
+const KEY_PREFIX = 'efecte-iLoq-synchronization-integration'
+
+function getAuditRecordKey(realEstateId: string, keyId: string) {
+  return `${KEY_PREFIX}:auditRecord:iLoq:key:${realEstateId}:${keyId}`
+}
+
+function getILoqMappingKey(customerCode: string, personId: string) {
+  return `${KEY_PREFIX}:mapped:person:iLoq:${customerCode}:${personId}`
+}
+
+// For regular persons the key is the entity id, for outsiders createIdentifier(email, name)
+function getEfecteMappingKey(
+  customerCode: string,
+  mapping: PersonMapping | OutsiderMapping
+) {
+  const identifier = isPersonMapping(mapping)
+    ? mapping.entityId
+    : createOutsiderIdentifier(mapping.outsiderEmail, mapping.outsiderName)
+
+  return `${KEY_PREFIX}:mapped:person:efecte:${customerCode}:${identifier}`
+}
+
+// The integration scopes person mappings by iLOQ customer code, which it stores in the audit record
+async function getCustomerCode(
+  realEstateId: string,
+  keyId: string
+): Promise<string | undefined> {
+  const auditRecordJson = await getRedisKey(
+    getAuditRecordKey(realEstateId, keyId)
+  )
+
+  return auditRecordJson
+    ? (JSON.parse(auditRecordJson) as AuditRecord).customerCode
+    : undefined
+}
+
+function isValidMapping(
+  value: unknown
+): value is PersonMapping | OutsiderMapping {
+  if (!value || typeof value !== 'object') return false
+  const mapping = value as Record<string, unknown>
+
+  return (
+    typeof mapping.entityId === 'string' ||
+    (typeof mapping.outsiderName === 'string' &&
+      typeof mapping.outsiderEmail === 'string')
+  )
+}
+
 function isPersonMapping(
   mapping: PersonMapping | OutsiderMapping
 ): mapping is PersonMapping {
@@ -71,6 +120,47 @@ function createOutsiderIdentifier(email: string, name: string): string {
   return identifier
 }
 
+// GET /api/redis/person-mapping?personId=<id>&realEstateId=<id>&keyId=<id>
+// Returns the current person mapping, e.g. the name and email an outsider was registered with
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return errorResponse('Unauthorized', 'UNAUTHORIZED', 401)
+    }
+
+    const searchParams = request.nextUrl.searchParams
+    const personId = searchParams.get('personId')
+    const realEstateId = searchParams.get('realEstateId')
+    const keyId = searchParams.get('keyId')
+
+    if (!personId || !realEstateId || !keyId) {
+      return errorResponse(
+        'personId, realEstateId, and keyId are required',
+        'INVALID_REQUEST',
+        400
+      )
+    }
+
+    const customerCode = await getCustomerCode(realEstateId, keyId)
+
+    if (!customerCode) {
+      return NextResponse.json({ mapping: null })
+    }
+
+    const mappingJson = await getRedisKey(
+      getILoqMappingKey(customerCode, personId)
+    )
+
+    return NextResponse.json({
+      mapping: mappingJson ? JSON.parse(mappingJson) : null,
+    })
+  } catch (error) {
+    logger.error({ error }, 'Error in GET /api/redis/person-mapping')
+    return errorResponse('Internal server error', 'SAVE_FAILED', 500)
+  }
+}
+
 // POST /api/redis/person-mapping
 export async function POST(request: NextRequest) {
   try {
@@ -90,12 +180,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // The integration scopes person mappings by iLOQ customer code, which it stores in the audit record
-    const auditKey = `efecte-iLoq-synchronization-integration:auditRecord:iLoq:key:${realEstateId}:${keyId}`
-    const auditRecordJson = await getRedisKey(auditKey)
-    const customerCode = auditRecordJson
-      ? (JSON.parse(auditRecordJson) as AuditRecord).customerCode
-      : undefined
+    const customerCode = await getCustomerCode(realEstateId, keyId)
 
     if (!customerCode) {
       logger.warn(
@@ -109,31 +194,42 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 1. Write iLoq→Efecte mapping to Redis
-    const iLoqMappingKey = `efecte-iLoq-synchronization-integration:mapped:person:iLoq:${customerCode}:${personId}`
-    await setRedisKey(iLoqMappingKey, JSON.stringify(mapping))
+    const iLoqMappingKey = getILoqMappingKey(customerCode, personId)
+    const efecteMappingKey = getEfecteMappingKey(customerCode, mapping)
 
-    // 2. Write Efecte→iLoq mapping to Redis
-    // For regular persons: key is entityId, value is iLoq personId
-    // For outsiders: key is createIdentifier(email, name), value is iLoq personId
-    if (isPersonMapping(mapping)) {
-      const efecteMappingKey = `efecte-iLoq-synchronization-integration:mapped:person:efecte:${customerCode}:${mapping.entityId}`
-      await setRedisKey(efecteMappingKey, personId)
-    } else {
-      const outsiderIdentifier = createOutsiderIdentifier(
-        mapping.outsiderEmail,
-        mapping.outsiderName
+    // 1. Remove the Efecte→iLoq mapping of a replaced mapping (e.g. corrected outsider details),
+    // so the old identifier no longer resolves to this iLOQ person
+    const previousMappingJson = await getRedisKey(iLoqMappingKey)
+    const previousMapping = previousMappingJson
+      ? JSON.parse(previousMappingJson)
+      : null
+
+    if (isValidMapping(previousMapping)) {
+      const previousEfecteMappingKey = getEfecteMappingKey(
+        customerCode,
+        previousMapping
       )
-      const efecteMappingKey = `efecte-iLoq-synchronization-integration:mapped:person:efecte:${customerCode}:${outsiderIdentifier}`
-      await setRedisKey(efecteMappingKey, personId)
+
+      if (
+        previousEfecteMappingKey !== efecteMappingKey &&
+        (await getRedisKey(previousEfecteMappingKey)) === personId
+      ) {
+        await deleteRedisKey(previousEfecteMappingKey)
+      }
     }
 
-    // 3. Delete audit record
-    await deleteRedisKey(auditKey)
+    // 2. Write iLoq→Efecte mapping to Redis
+    await setRedisKey(iLoqMappingKey, JSON.stringify(mapping))
 
-    // 4. Delete Efecte persons key (if exists - ignore errors)
+    // 3. Write Efecte→iLoq mapping to Redis
+    await setRedisKey(efecteMappingKey, personId)
+
+    // 4. Delete audit record
+    await deleteRedisKey(getAuditRecordKey(realEstateId, keyId))
+
+    // 5. Delete Efecte persons key (if exists - ignore errors)
     try {
-      const personsKey = `efecte-iLoq-synchronization-integration:auditRecord:iLoq:person:${personId}`
+      const personsKey = `${KEY_PREFIX}:auditRecord:iLoq:person:${personId}`
       await deleteRedisKey(personsKey)
     } catch (error) {
       logger.warn({ error, personId }, 'Failed to delete Efecte persons key')
