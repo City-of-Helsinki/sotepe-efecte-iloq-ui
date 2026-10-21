@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { KeyDetailsModal } from '@/components/non-synced-keys/KeyDetailsModal'
 import type { AuditRecord } from '@/types'
 import { getDictionary } from '@/lib/i18n'
-import { useCurrentPersonMapping } from '@/hooks/useCurrentPersonMapping'
 
 const t = getDictionary('fi')
 
@@ -26,15 +25,6 @@ vi.mock(
 
 vi.mock('@/components/non-synced-keys/modal-sections/MatchingPersons', () => ({
   MatchingPersons: () => <div>MatchingPersons Mock</div>,
-}))
-
-vi.mock('@/hooks/useCurrentPersonMapping', async importOriginal => ({
-  ...(await importOriginal<typeof import('@/hooks/useCurrentPersonMapping')>()),
-  useCurrentPersonMapping: vi.fn(() => ({
-    data: undefined,
-    isLoading: false,
-    isError: false,
-  })),
 }))
 
 vi.mock('@/components/non-synced-keys/modal-sections/ManualEntryForms', () => ({
@@ -235,45 +225,5 @@ describe('KeyDetailsModal', () => {
     expect(
       screen.getByText(t.categories.outsider_without_key_card.description)
     ).toBeInTheDocument()
-  })
-
-  it('shows the details the outsider is registered with', () => {
-    vi.mocked(useCurrentPersonMapping).mockReturnValue({
-      data: { outsiderName: 'Umid Usan', outsiderEmail: 'aulapalvelut@hel.fi' },
-      isLoading: false,
-      isError: false,
-    } as any)
-
-    render(
-      <KeyDetailsModal
-        keyData={mockKeyData}
-        failureCategory="outsider_without_key_card"
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-      />,
-      { wrapper }
-    )
-
-    expect(screen.getByText(t.outsiderRegistration.title)).toBeInTheDocument()
-    expect(screen.getByText('Umid Usan')).toBeInTheDocument()
-    expect(screen.getByText('aulapalvelut@hel.fi')).toBeInTheDocument()
-    expect(useCurrentPersonMapping).toHaveBeenLastCalledWith(mockKeyData, true)
-  })
-
-  it('does not load the person mapping for other categories', () => {
-    render(
-      <KeyDetailsModal
-        keyData={mockKeyData}
-        failureCategory="no_matching"
-        onClose={mockOnClose}
-        onSuccess={mockOnSuccess}
-      />,
-      { wrapper }
-    )
-
-    expect(
-      screen.queryByText(t.outsiderRegistration.title)
-    ).not.toBeInTheDocument()
-    expect(useCurrentPersonMapping).toHaveBeenLastCalledWith(mockKeyData, false)
   })
 })

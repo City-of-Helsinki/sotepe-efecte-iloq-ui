@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
-import type { AuditRecord, FailureCategory, OutsiderMapping } from '@/types'
+import type { AuditRecord, FailureCategory } from '@/types'
 import { ConfirmationDialog } from '../ConfirmationDialog'
 import { useI18n } from '@/components/providers/language-provider'
 
@@ -18,8 +18,6 @@ interface ManualEntryFormsProps {
   failureCategory: FailureCategory
   onSuccess: () => void
   onFormChange: (hasChanges: boolean) => void
-  // The details the person is currently registered as an outsider with, prefilled for correcting them
-  initialOutsider?: OutsiderMapping | null
 }
 
 type FormType = 'match' | 'outsider'
@@ -29,8 +27,7 @@ type ConfirmationData =
   | { type: 'outsider'; name: string; email: string }
 
 function getInitialFormType(category: FailureCategory): FormType | null {
-  if (category === 'multiple_matching') return null
-  return category === 'outsider_without_key_card' ? 'outsider' : 'match'
+  return category === 'multiple_matching' ? null : 'match'
 }
 
 export function ManualEntryForms({
@@ -38,14 +35,10 @@ export function ManualEntryForms({
   failureCategory,
   onSuccess,
   onFormChange,
-  initialOutsider,
 }: ManualEntryFormsProps) {
   const { t } = useI18n()
-  // An outsider without a key card is corrected either by fixing the outsider details or,
-  // if the person was registered as an outsider by mistake, by matching with an Efecte person
-  const isOutsiderCorrection = failureCategory === 'outsider_without_key_card'
-  const initialOutsiderName = initialOutsider?.outsiderName ?? ''
-  const initialOutsiderEmail = initialOutsider?.outsiderEmail ?? ''
+  // An outsider without a key card can only be corrected by matching with an Efecte person
+  const isCorrectiveMatchOnly = failureCategory === 'outsider_without_key_card'
   const [formType, setFormType] = useState<FormType | null>(
     getInitialFormType(failureCategory)
   )
@@ -58,8 +51,8 @@ export function ManualEntryForms({
   const [efecteId, setEfecteId] = useState('')
 
   // Outsider form
-  const [outsiderName, setOutsiderName] = useState(initialOutsiderName)
-  const [outsiderEmail, setOutsiderEmail] = useState(initialOutsiderEmail)
+  const [outsiderName, setOutsiderName] = useState('')
+  const [outsiderEmail, setOutsiderEmail] = useState('')
 
   const { mutate: saveMapping, isPending } = useSavePersonMapping({
     onSuccess: () => {
@@ -73,6 +66,17 @@ export function ManualEntryForms({
     },
   })
 
+  // Track form changes
+  useEffect(() => {
+    const hasChanges =
+      formType === 'match'
+        ? entityId.length > 0 || efecteId.length > 0
+        : formType === 'outsider'
+          ? outsiderName.length > 0 || outsiderEmail.length > 0
+          : false
+    onFormChange(hasChanges)
+  }, [formType, entityId, efecteId, outsiderName, outsiderEmail, onFormChange])
+
   // Validation
   const isEntityIdValid = entityId.length >= 6 && /^\d+$/.test(entityId)
   const isEfecteIdValid = /^PER-\d{8}$/.test(efecteId)
@@ -80,25 +84,7 @@ export function ManualEntryForms({
 
   const isEmailValid =
     outsiderEmail.includes('@') && outsiderEmail.includes('.')
-  const isOutsiderChanged =
-    outsiderName !== initialOutsiderName ||
-    outsiderEmail !== initialOutsiderEmail
-  // Saving unchanged outsider details would not correct anything
-  const isOutsiderFormValid =
-    outsiderName.trim().length > 0 &&
-    isEmailValid &&
-    (!isOutsiderCorrection || isOutsiderChanged)
-
-  // Track form changes
-  useEffect(() => {
-    const hasChanges =
-      formType === 'match'
-        ? entityId.length > 0 || efecteId.length > 0
-        : formType === 'outsider'
-          ? isOutsiderChanged
-          : false
-    onFormChange(hasChanges)
-  }, [formType, entityId, efecteId, isOutsiderChanged, onFormChange])
+  const isOutsiderFormValid = outsiderName.trim().length > 0 && isEmailValid
 
   const handleMatchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -159,20 +145,10 @@ export function ManualEntryForms({
   return (
     <>
       <div className="space-y-4">
-        {isOutsiderCorrection ? (
-          <RadioGroup
-            value={formType || ''}
-            onValueChange={value => setFormType(value as FormType)}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="outsider" id="outsider" />
-              <Label htmlFor="outsider">{t.forms.correctOutsiderOption}</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="match" id="match" />
-              <Label htmlFor="match">{t.forms.correctiveMatchOption}</Label>
-            </div>
-          </RadioGroup>
+        {isCorrectiveMatchOnly ? (
+          <Alert>
+            <AlertDescription>{t.forms.correctiveNote}</AlertDescription>
+          </Alert>
         ) : (
           <RadioGroup
             value={formType || ''}
@@ -187,12 +163,6 @@ export function ManualEntryForms({
               <Label htmlFor="outsider">{t.forms.outsiderOption}</Label>
             </div>
           </RadioGroup>
-        )}
-
-        {isOutsiderCorrection && formType === 'match' && (
-          <Alert>
-            <AlertDescription>{t.forms.correctiveNote}</AlertDescription>
-          </Alert>
         )}
 
         {formType === 'match' && (
@@ -254,11 +224,7 @@ export function ManualEntryForms({
         {formType === 'outsider' && (
           <form onSubmit={handleOutsiderSubmit} className="space-y-4">
             <Alert>
-              <AlertDescription>
-                {isOutsiderCorrection
-                  ? t.forms.correctOutsiderNote
-                  : t.forms.outsiderNote}
-              </AlertDescription>
+              <AlertDescription>{t.forms.outsiderNote}</AlertDescription>
             </Alert>
 
             <div className="space-y-2">
@@ -299,9 +265,7 @@ export function ManualEntryForms({
             </div>
 
             <Button type="submit" disabled={!isOutsiderFormValid || isPending}>
-              {isOutsiderCorrection
-                ? t.forms.correctOutsiderSubmit
-                : t.forms.outsiderSubmit}
+              {t.forms.outsiderSubmit}
             </Button>
           </form>
         )}

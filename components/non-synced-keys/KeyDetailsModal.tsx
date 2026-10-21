@@ -13,11 +13,6 @@ import { KeyDetails } from './modal-sections/KeyDetails'
 import { PersonInformation } from './modal-sections/PersonInformation'
 import { MatchingPersons } from './modal-sections/MatchingPersons'
 import { ManualEntryForms } from './modal-sections/ManualEntryForms'
-import { OutsiderRegistration } from './modal-sections/OutsiderRegistration'
-import {
-  useCurrentPersonMapping,
-  isOutsiderMapping,
-} from '@/hooks/useCurrentPersonMapping'
 import { CategoryGuidance } from './CategoryGuidance'
 import { useI18n } from '@/components/providers/language-provider'
 
@@ -37,11 +32,6 @@ export function KeyDetailsModal({
   const { t } = useI18n()
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showCloseWarning, setShowCloseWarning] = useState(false)
-  const isOutsiderCategory = failureCategory === 'outsider_without_key_card'
-  const currentMapping = useCurrentPersonMapping(keyData, isOutsiderCategory)
-  const outsiderMapping = isOutsiderMapping(currentMapping.data)
-    ? currentMapping.data
-    : null
 
   const handleClose = () => {
     if (hasUnsavedChanges) {
@@ -77,13 +67,6 @@ export function KeyDetailsModal({
             <SyncInformation keyData={keyData} />
             <KeyDetails keyData={keyData} />
             <PersonInformation person={keyData.iloqKey.person} />
-            {isOutsiderCategory && (
-              <OutsiderRegistration
-                mapping={outsiderMapping}
-                isLoading={currentMapping.isLoading}
-                isError={currentMapping.isError}
-              />
-            )}
             <CategoryGuidance category={failureCategory} />
 
             {failureCategory === 'multiple_matching' && (
@@ -94,16 +77,12 @@ export function KeyDetailsModal({
               />
             )}
 
-            {/* The outsider details are prefilled, so the form is shown once they are loaded */}
-            {!(isOutsiderCategory && currentMapping.isLoading) && (
-              <ManualEntryForms
-                initialOutsider={outsiderMapping}
-                keyData={keyData}
-                failureCategory={failureCategory}
-                onSuccess={handleSuccess}
-                onFormChange={setHasUnsavedChanges}
-              />
-            )}
+            <ManualEntryForms
+              keyData={keyData}
+              failureCategory={failureCategory}
+              onSuccess={handleSuccess}
+              onFormChange={setHasUnsavedChanges}
+            />
           </div>
         </DialogContent>
       </Dialog>

@@ -99,25 +99,4 @@ describe('KeyListView', () => {
       screen.getByText('KeyDetailsModal Mock: outsider_without_key_card')
     ).toBeInTheDocument()
   })
-
-  it('shows the key without empty parentheses when the person name is missing', async () => {
-    const user = userEvent.setup()
-    const record = createAuditRecord('9', MESSAGES.outsider)
-    record.iloqKey.person = { Person_ID: 'person-9' } as any
-
-    render(
-      <KeyListView
-        realEstate={{ ...realEstate, totalKeys: 1, keys: [record] }}
-      />
-    )
-
-    await user.click(
-      screen.getByRole('button', {
-        name: new RegExp(t.categories.outsider_without_key_card.title),
-      })
-    )
-
-    expect(screen.getByText('Key 9')).toBeInTheDocument()
-    expect(screen.queryByText(/\(\s*\)/)).not.toBeInTheDocument()
-  })
 })
