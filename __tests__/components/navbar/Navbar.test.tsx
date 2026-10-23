@@ -70,4 +70,20 @@ describe('Navbar', () => {
     expect(dashboardLink.className).toContain('text-muted-foreground')
     expect(nonSyncedKeysLink.className).toContain('text-primary')
   })
+
+  it('shows the application version when it is available', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.2.0')
+    render(<Navbar />)
+
+    expect(screen.getByText('v1.2.0')).toBeInTheDocument()
+    vi.unstubAllEnvs()
+  })
+
+  it('does not show a version when it is not available', () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '')
+    render(<Navbar />)
+
+    expect(screen.queryByText(/^v\d/)).not.toBeInTheDocument()
+    vi.unstubAllEnvs()
+  })
 })

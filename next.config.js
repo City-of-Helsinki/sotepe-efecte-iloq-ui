@@ -3,6 +3,10 @@ const { withSentryConfig } = require('@sentry/nextjs')
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  // The release version (managed by release-please in the GitHub repository) is shown in the navbar
+  env: {
+    NEXT_PUBLIC_APP_VERSION: require('./package.json').version,
+  },
   reactStrictMode: true,
   logging: {
     fetches: {

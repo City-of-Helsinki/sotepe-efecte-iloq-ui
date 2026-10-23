@@ -11,6 +11,7 @@ const fi = {
     confirm: 'Vahvista',
     confirming: 'Vahvistetaan...',
     close: 'Sulje',
+    version: 'Versio',
     dateTimeSeparator: 'klo',
   },
   languageSwitcher: {
@@ -124,6 +125,7 @@ const fi = {
   },
   keyDetails: {
     title: 'Avain',
+    keyId: 'iLOQ-avaimen ID:',
     description: 'Kuvaus:',
     realEstate: 'Kiinteistö:',
     state: 'Tila:',
@@ -205,7 +207,7 @@ const fi = {
     efecteIdInvalid: 'Efecte ID:n on oltava muotoa PER-XXXXXXXX (8 numeroa)',
     matchSubmit: 'Kohdista henkilö',
     outsiderNote:
-      'Käytä tätä vain, jos Efectessä on jo tälle avaimelle ulkopuolisen henkilön avainkortti. Integraatio ei luo Efecteen avainkortteja ulkopuolisille henkilöille, vaan yhdistää iLOQ-avaimen olemassa olevaan korttiin. Kirjoita nimi ja sähköposti täsmälleen kuten ne ovat Efecten avainkortilla. Älä käytä tätä Efecten henkilöille.',
+      'Käytä tätä vain, jos Efectessä on tälle avaimelle ulkopuolisen henkilön avainkortti, jonka ulkopuolisen nimi poikkeaa iLOQ-henkilön nimestä. Kirjoita nimi ja sähköposti täsmälleen kuten ne ovat Efecten avainkortilla. Integraatio ei luo Efecteen avainkortteja ulkopuolisille henkilöille. Jos kortti on tehty Efecteen vasta äskettäin samalla nimellä kuin iLOQissa, rekisteröintiä ei tarvita: integraatio yhdistää avaimen seuraavassa ajossa. Älä käytä tätä Efecten henkilöille.',
     outsiderName: 'Nimi',
     outsiderNamePlaceholder: 'Kirjoita koko nimi',
     outsiderEmail: 'Sähköposti',
@@ -243,6 +245,7 @@ const en: Dictionary = {
     confirm: 'Confirm',
     confirming: 'Confirming...',
     close: 'Close',
+    version: 'Version',
     dateTimeSeparator: 'at',
   },
   languageSwitcher: {
@@ -354,6 +357,7 @@ const en: Dictionary = {
   },
   keyDetails: {
     title: 'Key',
+    keyId: 'iLOQ key ID:',
     description: 'Description:',
     realEstate: 'Real estate:',
     state: 'State:',
@@ -435,7 +439,7 @@ const en: Dictionary = {
     efecteIdInvalid: 'Efecte ID must be in format PER-XXXXXXXX (8 digits)',
     matchSubmit: 'Match person',
     outsiderNote:
-      'Use this only if an outsider key card for this key already exists in Efecte. The integration does not create Efecte key cards for outsiders, it links the iLOQ key to the existing card. Enter the name and email exactly as they are on the Efecte key card. Do not use this for Efecte persons.',
+      'Use this only if Efecte has an outsider key card for this key whose outsider name differs from the iLOQ person’s name. Enter the name and email exactly as they are on the Efecte key card. The integration does not create Efecte key cards for outsiders. If the card was created in Efecte only recently with the same name as in iLOQ, no registration is needed: the integration links the key in the next run. Do not use this for Efecte persons.',
     outsiderName: 'Name',
     outsiderNamePlaceholder: 'Enter full name',
     outsiderEmail: 'Email',

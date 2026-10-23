@@ -16,6 +16,10 @@ export function KeyDetails({ keyData }: KeyDetailsProps) {
       <h3 className="font-bold text-lg">{t.keyDetails.title}</h3>
       <div className="space-y-1 text-sm">
         <div>
+          <span className="font-medium">{t.keyDetails.keyId}</span>{' '}
+          {iloqKey.fnKeyId}
+        </div>
+        <div>
           <span className="font-medium">{t.keyDetails.description}</span>{' '}
           {iloqKey.description || '-'}
         </div>
