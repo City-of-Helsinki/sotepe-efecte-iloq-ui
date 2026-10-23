@@ -9,6 +9,7 @@ import { LanguageSwitcher } from '@/components/language/LanguageSwitcher'
 export function Navbar() {
   const pathname = usePathname()
   const { t } = useI18n()
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION
 
   return (
     <nav className="border-b bg-background">
@@ -46,7 +47,17 @@ export function Navbar() {
               </Link>
             </div>
           </div>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-4">
+            {appVersion && (
+              <span
+                className="text-xs text-muted-foreground"
+                title={`${t.common.version} ${appVersion}`}
+              >
+                v{appVersion}
+              </span>
+            )}
+            <LanguageSwitcher />
+          </div>
         </div>
       </div>
     </nav>

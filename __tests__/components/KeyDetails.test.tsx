@@ -148,4 +148,13 @@ describe('KeyDetails', () => {
       screen.getByText(new RegExp(t.keyDetails.unknownState))
     ).toBeInTheDocument()
   })
+
+  it('shows the iLOQ key id', () => {
+    render(<KeyDetails keyData={mockKeyData} />)
+
+    const label = screen.getByText(t.keyDetails.keyId)
+    expect(label.parentElement?.textContent).toContain(
+      mockKeyData.iloqKey.fnKeyId
+    )
+  })
 })
