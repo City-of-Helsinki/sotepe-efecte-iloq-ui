@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.2.0...sotepe-efecte-iloq-ui-v1.3.0) (2026-10-23)
+
+
+### Features
+
+* Show the application version and the iLOQ key id, clarify outsider registration ([#19](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/issues/19)) ([76c388c](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/commit/76c388c914edaa58a841d1788f37308ba5596f3f))
+
 ## [1.2.0](https://github.com/City-of-Helsinki/sotepe-efecte-iloq-ui/compare/sotepe-efecte-iloq-ui-v1.1.0...sotepe-efecte-iloq-ui-v1.2.0) (2026-10-21)
 
 
